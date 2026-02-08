@@ -2,7 +2,7 @@
 //!
 //! These tests use wiremock to mock API responses.
 
-use coinbase_client::{Credentials, RestClient};
+use coinbase_advanced::{Credentials, RestClient};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -101,7 +101,7 @@ async fn test_rate_limit_response() {
 }
 
 mod models {
-    use coinbase_client::models::*;
+    use coinbase_advanced::models::*;
 
     #[test]
     fn test_order_side_serialization() {
@@ -222,7 +222,7 @@ mod models {
 }
 
 mod rate_limit {
-    use coinbase_client::rate_limit::{RateLimitConfig, RateLimitInfo, RateLimiter, TokenBucket};
+    use coinbase_advanced::rate_limit::{RateLimitConfig, RateLimitInfo, RateLimiter, TokenBucket};
 
     #[test]
     fn test_token_bucket_creation() {
@@ -268,7 +268,7 @@ mod rate_limit {
 }
 
 mod websocket {
-    use coinbase_client::websocket::{Channel, ChannelName, EndpointType, Message};
+    use coinbase_advanced::websocket::{Channel, ChannelName, EndpointType, Message};
 
     #[test]
     fn test_channel_types() {

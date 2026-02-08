@@ -42,10 +42,10 @@ pub fn generate_jwt(credentials: &Credentials, method: &str, path: &str) -> Resu
         .map_err(|e| Error::jwt(format!("Failed to get current time: {}", e)))?
         .as_secs();
 
-    // Generate random nonce
+    // Generate random nonce.
     let nonce = generate_nonce()?;
 
-    // Build header
+    // Build header.
     let header = JwtHeader {
         alg: "ES256",
         kid: credentials.api_key(),
@@ -56,7 +56,7 @@ pub fn generate_jwt(credentials: &Credentials, method: &str, path: &str) -> Resu
     // Build URI claim: "<METHOD> api.coinbase.com<path>"
     let uri = format!("{} api.coinbase.com{}", method.to_uppercase(), path);
 
-    // Build claims
+    // Build claims.
     let claims = JwtClaims {
         iss: JWT_ISSUER,
         sub: credentials.api_key(),
@@ -65,7 +65,7 @@ pub fn generate_jwt(credentials: &Credentials, method: &str, path: &str) -> Resu
         uri: Some(uri),
     };
 
-    // Encode and sign
+    // Encode and sign.
     sign_jwt(&header, &claims, credentials)
 }
 
@@ -111,7 +111,7 @@ fn sign_jwt<H: Serialize, C: Serialize>(
     claims: &C,
     credentials: &Credentials,
 ) -> Result<String> {
-    // Encode header and claims
+    // Encode header and claims.
     let header_b64 = base64_url_encode(
         &serde_json::to_vec(header).map_err(|e| Error::jwt(format!("Failed to encode header: {}", e)))?,
     );
@@ -119,10 +119,10 @@ fn sign_jwt<H: Serialize, C: Serialize>(
         &serde_json::to_vec(claims).map_err(|e| Error::jwt(format!("Failed to encode claims: {}", e)))?,
     );
 
-    // Create signing input
+    // Create signing input.
     let signing_input = format!("{}.{}", header_b64, claims_b64);
 
-    // Parse the private key and sign
+    // Parse the private key and sign.
     let signature = sign_es256(signing_input.as_bytes(), credentials.private_key())?;
     let signature_b64 = base64_url_encode(&signature);
 
@@ -131,15 +131,15 @@ fn sign_jwt<H: Serialize, C: Serialize>(
 
 /// Sign data with ES256 using the provided PEM private key.
 fn sign_es256(data: &[u8], pem_key: &str) -> Result<Vec<u8>> {
-    // Parse PEM to get the DER-encoded key
+    // Parse PEM to get the DER-encoded key.
     let der = parse_ec_private_key_pem(pem_key)?;
 
-    // Create the key pair
+    // Create the key pair.
     let rng = SystemRandom::new();
     let key_pair = EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, &der, &rng)
         .map_err(|e| Error::jwt(format!("Failed to parse private key: {}", e)))?;
 
-    // Sign the data
+    // Sign the data.
     let signature = key_pair
         .sign(&rng, data)
         .map_err(|_| Error::jwt("Failed to sign JWT"))?;
@@ -149,10 +149,10 @@ fn sign_es256(data: &[u8], pem_key: &str) -> Result<Vec<u8>> {
 
 /// Parse a PEM-encoded EC private key to PKCS#8 DER format.
 fn parse_ec_private_key_pem(pem: &str) -> Result<Vec<u8>> {
-    // Find the base64 content between the PEM headers
+    // Find the base64 content between the PEM headers.
     let pem = pem.trim();
 
-    // Handle both "EC PRIVATE KEY" (SEC1) and "PRIVATE KEY" (PKCS#8) formats
+    // Handle both "EC PRIVATE KEY" (SEC1) and "PRIVATE KEY" (PKCS#8) formats.
     let (start_marker, end_marker, is_sec1) = if pem.contains("BEGIN EC PRIVATE KEY") {
         ("-----BEGIN EC PRIVATE KEY-----", "-----END EC PRIVATE KEY-----", true)
     } else if pem.contains("BEGIN PRIVATE KEY") {
@@ -177,10 +177,10 @@ fn parse_ec_private_key_pem(pem: &str) -> Result<Vec<u8>> {
     let der = base64_decode(&b64_content)?;
 
     if is_sec1 {
-        // Convert SEC1 to PKCS#8 format
+        // Convert SEC1 to PKCS#8 format.
         convert_sec1_to_pkcs8(&der)
     } else {
-        // Already in PKCS#8 format
+        // Already in PKCS#8 format.
         Ok(der)
     }
 }
@@ -202,11 +202,11 @@ fn parse_ec_private_key_pem(pem: &str) -> Result<Vec<u8>> {
 ///   privateKey      OCTET STRING (contains SEC1 ECPrivateKey)
 /// }
 fn convert_sec1_to_pkcs8(sec1_der: &[u8]) -> Result<Vec<u8>> {
-    // We need to construct the PKCS#8 structure properly
-    // The SEC1 key needs to be wrapped in an OCTET STRING
+    // Construct the PKCS#8 structure.
+    // The SEC1 key needs to be wrapped in an OCTET STRING.
     let sec1_len = sec1_der.len();
 
-    // Build OCTET STRING for the private key
+    // Build OCTET STRING for the private key.
     let mut octet_string = Vec::new();
     octet_string.push(0x04); // OCTET STRING tag
     if sec1_len < 128 {
@@ -217,20 +217,20 @@ fn convert_sec1_to_pkcs8(sec1_der: &[u8]) -> Result<Vec<u8>> {
     }
     octet_string.extend_from_slice(sec1_der);
 
-    // Build AlgorithmIdentifier
+    // Build AlgorithmIdentifier.
     let alg_id: &[u8] = &[
         0x30, 0x13, // SEQUENCE
         0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, // OID ecPublicKey
         0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, // OID prime256v1
     ];
 
-    // Build version
+    // Build version.
     let version: &[u8] = &[0x02, 0x01, 0x00]; // INTEGER 0
 
-    // Calculate total length
+    // Calculate total length.
     let content_len = version.len() + alg_id.len() + octet_string.len();
 
-    // Build final PKCS#8 structure
+    // Build final PKCS#8 structure.
     let mut pkcs8 = Vec::new();
     pkcs8.push(0x30); // SEQUENCE tag
     if content_len < 128 {

@@ -26,8 +26,8 @@ impl<'a> AccountsApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::ListAccountsParams};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::ListAccountsParams};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -61,8 +61,8 @@ impl<'a> AccountsApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;

@@ -1,6 +1,6 @@
 //! Example: Get public market data (no auth required)
 
-use coinbase_client::{models::ListProductsParams, RestClient};
+use coinbase_advanced::{models::ListProductsParams, RestClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

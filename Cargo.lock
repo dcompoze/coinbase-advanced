@@ -139,7 +139,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "coinbase-client"
+name = "coinbase-advanced"
 version = "0.1.0"
 dependencies = [
  "dotenv",

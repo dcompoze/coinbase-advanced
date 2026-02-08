@@ -14,7 +14,7 @@
 //!
 //! Rate limiting is automatically applied by the RestClient when enabled.
 //! ```no_run
-//! use coinbase_client::{RestClient, Credentials};
+//! use coinbase_advanced::{RestClient, Credentials};
 //!
 //! let client = RestClient::builder()
 //!     .credentials(Credentials::from_env().unwrap())

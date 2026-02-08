@@ -30,8 +30,8 @@ impl<'a> ProductsApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::ListProductsParams};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::ListProductsParams};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -61,8 +61,8 @@ impl<'a> ProductsApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -84,8 +84,8 @@ impl<'a> ProductsApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::GetProductBookParams};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::GetProductBookParams};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -109,8 +109,8 @@ impl<'a> ProductsApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::GetBestBidAskParams};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::GetBestBidAskParams};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -133,8 +133,8 @@ impl<'a> ProductsApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::{GetCandlesParams, Granularity}};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::{GetCandlesParams, Granularity}};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -162,8 +162,8 @@ impl<'a> ProductsApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::GetMarketTradesParams};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::GetMarketTradesParams};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;

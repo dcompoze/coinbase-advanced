@@ -34,8 +34,8 @@ impl<'a> OrdersApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::{CreateOrderRequest, OrderSide, OrderConfiguration}};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::{CreateOrderRequest, OrderSide, OrderConfiguration}};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -83,8 +83,8 @@ impl<'a> OrdersApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::CancelOrdersRequest};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::CancelOrdersRequest};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -113,8 +113,8 @@ impl<'a> OrdersApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::ListOrdersParams};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::ListOrdersParams};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -149,8 +149,8 @@ impl<'a> OrdersApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -171,8 +171,8 @@ impl<'a> OrdersApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::ListFillsParams};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::ListFillsParams};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;

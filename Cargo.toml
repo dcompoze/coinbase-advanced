@@ -1,29 +1,29 @@
 [package]
-name = "coinbase-client"
-version = "0.1.0"
-edition = "2021"
-rust-version = "1.75"
-license = "MIT OR Apache-2.0"
-description = "A Rust client library for the Coinbase Advanced Trade API"
-repository = "https://github.com/example/coinbase-client"
-documentation = "https://docs.rs/coinbase-client"
-readme = "README.md"
-keywords = ["coinbase", "cryptocurrency", "trading", "api", "websocket"]
 categories = ["api-bindings", "cryptography::cryptocurrencies"]
+description = "A Rust client library for the Coinbase Advanced Trade API"
+documentation = "https://docs.rs/coinbase-advanced"
+edition = "2024"
+keywords = ["coinbase", "cryptocurrency", "trading", "api", "websocket"]
+license = "MIT"
+name = "coinbase-advanced"
+readme = "README.md"
+repository = "https://github.com/dcompoze/coinbase-advanced"
+rust-version = "1.85"
+version = "0.1.0"
 
 [lib]
+name = "coinbase_advanced"
 path = "src/lib.rs"
-name = "coinbase_client"
 
 [dependencies]
 futures = "0.3.31"
 futures-util = "0.3.31"
 hex = "0.4"
 reqwest = { version = "0.13.1", features = ["json"] }
-ring = "0.17"
 reqwest-middleware = "0.5.0"
 reqwest-retry = "0.9.0"
 reqwest-tracing = "0.6.0"
+ring = "0.17"
 secrecy = "0.10.3"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"

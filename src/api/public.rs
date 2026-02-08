@@ -45,8 +45,8 @@ impl<'a> PublicApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::RestClient;
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::RestClient;
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder().build()?;
     ///
     /// let time = client.public().get_time().await?;

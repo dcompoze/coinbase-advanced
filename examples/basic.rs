@@ -6,11 +6,11 @@
 //! - COINBASE_API_KEY
 //! - COINBASE_PRIVATE_KEY
 
-use coinbase_client::models::GetBestBidAskParams;
-use coinbase_client::{Credentials, RestClient};
+use coinbase_advanced::models::GetBestBidAskParams;
+use coinbase_advanced::{Credentials, RestClient};
 
 #[tokio::main]
-async fn main() -> coinbase_client::Result<()> {
+async fn main() -> coinbase_advanced::Result<()> {
     // Initialize tracing for debug output
     tracing_subscriber::fmt::init();
 

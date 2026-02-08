@@ -4,11 +4,11 @@
 //!
 //! This example connects to the public WebSocket and streams ticker updates.
 
-use coinbase_client::websocket::{Channel, WebSocketClient};
+use coinbase_advanced::websocket::{Channel, WebSocketClient};
 use futures::StreamExt;
 
 #[tokio::main]
-async fn main() -> coinbase_client::Result<()> {
+async fn main() -> coinbase_advanced::Result<()> {
     tracing_subscriber::fmt::init();
 
     println!("Connecting to Coinbase WebSocket...");
@@ -43,7 +43,7 @@ async fn main() -> coinbase_client::Result<()> {
             Ok(message) => {
                 println!("Message #{}: {:?}", count + 1, message.channel);
                 match &message.events {
-                    coinbase_client::websocket::Events::Ticker(tickers) => {
+                    coinbase_advanced::websocket::Events::Ticker(tickers) => {
                         for event in tickers {
                             for ticker in &event.tickers {
                                 println!(
@@ -53,7 +53,7 @@ async fn main() -> coinbase_client::Result<()> {
                             }
                         }
                     }
-                    coinbase_client::websocket::Events::Heartbeats(hbs) => {
+                    coinbase_advanced::websocket::Events::Heartbeats(hbs) => {
                         for hb in hbs {
                             println!("  Heartbeat #{}", hb.heartbeat_counter);
                         }

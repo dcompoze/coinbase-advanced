@@ -29,8 +29,8 @@ impl<'a> ConvertApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::CreateConvertQuoteRequest};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::CreateConvertQuoteRequest};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -58,8 +58,8 @@ impl<'a> ConvertApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::CommitConvertTradeRequest};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::CommitConvertTradeRequest};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -89,8 +89,8 @@ impl<'a> ConvertApi<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::GetConvertTradeParams};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::GetConvertTradeParams};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;

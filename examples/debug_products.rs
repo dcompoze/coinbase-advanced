@@ -1,11 +1,11 @@
 //! Debug: Test products endpoint
 
-use coinbase_client::{models::ListProductsParams, Credentials, RestClient};
+use coinbase_advanced::{models::ListProductsParams, Credentials, RestClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
-        .with_env_filter("coinbase_client=debug,reqwest=debug")
+        .with_env_filter("coinbase_advanced=debug,reqwest=debug")
         .init();
 
     dotenv::dotenv().ok();

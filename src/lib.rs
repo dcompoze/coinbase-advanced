@@ -12,10 +12,10 @@
 //! ## Quick Start
 //!
 //! ```no_run
-//! use coinbase_client::{Credentials, RestClient};
+//! use coinbase_advanced::{Credentials, RestClient};
 //!
 //! #[tokio::main]
-//! async fn main() -> coinbase_client::Result<()> {
+//! async fn main() -> coinbase_advanced::Result<()> {
 //!     // Create credentials from environment variables
 //!     let credentials = Credentials::from_env()?;
 //!
@@ -44,7 +44,7 @@
 //! For testing, you can use the sandbox environment:
 //!
 //! ```no_run
-//! # use coinbase_client::{Credentials, RestClient};
+//! # use coinbase_advanced::{Credentials, RestClient};
 //! let client = RestClient::builder()
 //!     .credentials(Credentials::from_env().unwrap())
 //!     .sandbox(true)
@@ -63,18 +63,18 @@ pub mod models;
 pub mod rate_limit;
 pub mod websocket;
 
-// Re-export main types
+// Re-export main types.
 pub use client::{RestClient, RestClientBuilder};
 pub use credentials::Credentials;
 pub use error::{Error, Result};
 
-// Re-export API types for convenience
+// Re-export API types for convenience.
 pub use api::{
     AccountsApi, ConvertApi, DataApi, FeesApi, FuturesApi, OrdersApi, PaymentMethodsApi,
     PerpetualsApi, PortfoliosApi, ProductsApi, PublicApi, ServerTime,
 };
 
-// Re-export constants for advanced usage
+// Re-export constants for advanced usage.
 pub mod consts {
     pub use crate::constants::*;
 }

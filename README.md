@@ -1,55 +1,26 @@
-# coinbase-client
+# coinbase-advanced
 
-A Rust client library for the [Coinbase Advanced Trade API](https://docs.cdp.coinbase.com/advanced-trade-api/docs/welcome).
-
-[![Crates.io](https://img.shields.io/crates/v/coinbase-client.svg)](https://crates.io/crates/coinbase-client)
-[![Documentation](https://docs.rs/coinbase-client/badge.svg)](https://docs.rs/coinbase-client)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
-[![CI](https://github.com/example/coinbase-client/actions/workflows/ci.yml/badge.svg)](https://github.com/example/coinbase-client/actions/workflows/ci.yml)
-
-## Features
+A Rust async client library for the [Coinbase Advanced Trade API](https://docs.cdp.coinbase.com/advanced-trade-api/docs/welcome).
 
 - Complete REST API coverage for Coinbase Advanced Trade
-- WebSocket support for real-time market data and order updates
-- Strongly typed request/response models
+- WebSocket support for real-time market data
 - JWT (ES256) authentication
-- Optional rate limiting
+- Optional client-side rate limiting
 - Async/await with Tokio
-- Sandbox environment support
 
-## Installation
+# Usage
 
-Add to your `Cargo.toml`:
+## Authentication
 
-```toml
-[dependencies]
-coinbase-client = "0.1"
-tokio = { version = "1", features = ["full"] }
-```
-
-## Quick Start
-
-### Authentication
-
-First, obtain API credentials from the [Coinbase Developer Platform](https://portal.cdp.coinbase.com/). You'll need:
-
-- An API key (in the format `organizations/{org_id}/apiKeys/{key_id}`)
-- An EC private key in PEM format
+Obtain API credentials from the [Coinbase Developer Platform](https://portal.cdp.coinbase.com/).
+You need an API key and an EC private key in PEM format.
 
 ```rust
-use coinbase_client::{Credentials, RestClient};
+use coinbase_advanced::{Credentials, RestClient};
 
 #[tokio::main]
-async fn main() -> coinbase_client::Result<()> {
-    // Load credentials from environment variables
-    // COINBASE_API_KEY and COINBASE_PRIVATE_KEY
+async fn main() -> coinbase_advanced::Result<()> {
     let credentials = Credentials::from_env()?;
-
-    // Or create credentials directly
-    let credentials = Credentials::new(
-        "organizations/xxx/apiKeys/yyy",
-        "-----BEGIN EC PRIVATE KEY-----\n...\n-----END EC PRIVATE KEY-----"
-    )?;
 
     let client = RestClient::builder()
         .credentials(credentials)
@@ -59,61 +30,37 @@ async fn main() -> coinbase_client::Result<()> {
 }
 ```
 
-### Get Account Balances
+## Get account balances
 
 ```rust
-use coinbase_client::{Credentials, RestClient};
+use coinbase_advanced::{Credentials, RestClient};
 
 #[tokio::main]
-async fn main() -> coinbase_client::Result<()> {
+async fn main() -> coinbase_advanced::Result<()> {
     let client = RestClient::builder()
         .credentials(Credentials::from_env()?)
         .build()?;
 
-    // List all accounts
     let accounts = client.accounts().list_all().await?;
     for account in accounts {
-        println!("{}: {} {}",
-            account.name,
-            account.available_balance.value,
-            account.currency
-        );
+        println!("{}: {} {}", account.name, account.available_balance.value, account.currency);
     }
 
     Ok(())
 }
 ```
 
-### Get Market Data
+## Place an order
 
 ```rust
-use coinbase_client::RestClient;
+use coinbase_advanced::{Credentials, RestClient};
 
 #[tokio::main]
-async fn main() -> coinbase_client::Result<()> {
-    // Public endpoints don't require authentication
-    let client = RestClient::builder().build()?;
-
-    // Get server time
-    let time = client.public().get_time().await?;
-    println!("Server time: {}", time.iso);
-
-    Ok(())
-}
-```
-
-### Place an Order
-
-```rust
-use coinbase_client::{Credentials, RestClient};
-
-#[tokio::main]
-async fn main() -> coinbase_client::Result<()> {
+async fn main() -> coinbase_advanced::Result<()> {
     let client = RestClient::builder()
         .credentials(Credentials::from_env()?)
         .build()?;
 
-    // Place a market order to buy $100 of BTC
     let order = client.market_order()
         .buy("BTC-USD")
         .quote_size("100.00")
@@ -121,89 +68,36 @@ async fn main() -> coinbase_client::Result<()> {
         .await?;
 
     println!("Order placed: {}", order.order_id);
-
-    // Place a limit order
-    let order = client.limit_order_gtc()
-        .buy("BTC-USD")
-        .base_size("0.001")
-        .limit_price("50000.00")
-        .send()
-        .await?;
-
-    println!("Limit order: {}", order.order_id);
-
     Ok(())
 }
 ```
 
-### WebSocket Streaming
+## WebSocket streaming
 
 ```rust
-use coinbase_client::websocket::{WebSocketClient, Channel};
+use coinbase_advanced::websocket::{WebSocketClient, Channel};
 use futures::StreamExt;
 
 #[tokio::main]
-async fn main() -> coinbase_client::Result<()> {
+async fn main() -> coinbase_advanced::Result<()> {
     let client = WebSocketClient::builder().build()?;
-
-    // Connect to WebSocket
     let mut stream = client.connect().await?;
 
-    // Subscribe to ticker updates
     client.subscribe(&[
-        Channel::Ticker {
-            product_ids: vec!["BTC-USD".to_string(), "ETH-USD".to_string()],
-        },
+        Channel::Ticker { product_ids: vec!["BTC-USD".to_string()] },
     ]).await?;
 
-    // Process messages
     while let Some(msg) = stream.next().await {
-        match msg {
-            Ok(message) => println!("Received: {:?}", message),
-            Err(e) => eprintln!("Error: {}", e),
-        }
+        println!("{:?}", msg);
     }
 
     Ok(())
 }
 ```
 
-## API Coverage
-
-### REST APIs
-
-| API | Status |
-|-----|--------|
-| Accounts | Complete |
-| Products | Complete |
-| Orders | Complete |
-| Fees | Complete |
-| Portfolios | Complete |
-| Convert | Complete |
-| Data | Complete |
-| Payment Methods | Complete |
-| Perpetuals (INTX) | Complete |
-| Futures (CFM) | Complete |
-| Public | Complete |
-
-### WebSocket Channels
-
-| Channel | Status |
-|---------|--------|
-| Heartbeats | Complete |
-| Status | Complete |
-| Ticker | Complete |
-| Ticker Batch | Complete |
-| Level2 | Complete |
-| Candles | Complete |
-| Market Trades | Complete |
-| User | Complete |
-
 ## Configuration
 
-### Sandbox Mode
-
-Use the sandbox environment for testing:
+## Sandbox mode
 
 ```rust
 let client = RestClient::builder()
@@ -212,9 +106,7 @@ let client = RestClient::builder()
     .build()?;
 ```
 
-### Rate Limiting
-
-Enable client-side rate limiting to avoid hitting API limits:
+## Rate limiting
 
 ```rust
 let client = RestClient::builder()
@@ -223,60 +115,32 @@ let client = RestClient::builder()
     .build()?;
 ```
 
-### Custom Timeout
+# API coverage
 
-```rust
-use std::time::Duration;
+| REST API | WebSocket channels |
+|----------|-------------------|
+| Accounts | Heartbeats |
+| Products | Ticker |
+| Orders | Level2 |
+| Fees | Candles |
+| Portfolios | Market Trades |
+| Convert | User |
+| Data | Status |
+| Payment Methods | |
+| Perpetuals | |
+| Futures | |
+| Public | |
 
-let client = RestClient::builder()
-    .credentials(Credentials::from_env()?)
-    .timeout(Duration::from_secs(60))
-    .build()?;
-```
+# Examples
 
-## Error Handling
+See the [examples](examples/) directory:
 
-The library uses a custom `Error` type that covers various failure modes:
-
-```rust
-use coinbase_client::{Error, RestClient, Credentials};
-
-async fn example() {
-    let client = RestClient::builder()
-        .credentials(Credentials::from_env().unwrap())
-        .build()
-        .unwrap();
-
-    match client.accounts().list_all().await {
-        Ok(accounts) => println!("Found {} accounts", accounts.len()),
-        Err(Error::RateLimited { retry_after }) => {
-            println!("Rate limited, retry after {:?}", retry_after);
-        }
-        Err(Error::Api { message, status, .. }) => {
-            println!("API error {}: {}", status, message);
-        }
-        Err(e) => println!("Other error: {}", e),
-    }
-}
-```
-
-## Examples
-
-See the [examples](examples/) directory for more detailed examples:
-
-- `basic.rs` - Basic account and product queries
+- `basic.rs` - Account and product queries
 - `orders.rs` - Order placement and management
-- `websocket.rs` - Real-time WebSocket streaming
+- `websocket.rs` - Real-time streaming
 
-## License
+Run examples with:
 
-Licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+```sh
+cargo run --example basic
+```

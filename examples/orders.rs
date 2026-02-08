@@ -8,11 +8,11 @@
 //! - COINBASE_API_KEY
 //! - COINBASE_PRIVATE_KEY
 
-use coinbase_client::models::ListFillsParams;
-use coinbase_client::{Credentials, RestClient};
+use coinbase_advanced::models::ListFillsParams;
+use coinbase_advanced::{Credentials, RestClient};
 
 #[tokio::main]
-async fn main() -> coinbase_client::Result<()> {
+async fn main() -> coinbase_advanced::Result<()> {
     tracing_subscriber::fmt::init();
 
     let credentials = Credentials::from_env()?;

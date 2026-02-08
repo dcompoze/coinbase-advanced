@@ -75,13 +75,13 @@ impl<'a> MarketOrderBuilder<'a> {
         let side = self.side
             .ok_or_else(|| Error::request("side is required (use .buy() or .sell())"))?;
 
-        let config = if self.quote_size.is_some() {
-            OrderConfiguration::market_buy_quote(self.quote_size.unwrap())
-        } else if self.base_size.is_some() {
+        let config = if let Some(quote_size) = self.quote_size {
+            OrderConfiguration::market_buy_quote(quote_size)
+        } else if let Some(base_size) = self.base_size {
             if side == OrderSide::Buy {
-                OrderConfiguration::market_buy_base(self.base_size.unwrap())
+                OrderConfiguration::market_buy_base(base_size)
             } else {
-                OrderConfiguration::market_sell(self.base_size.unwrap())
+                OrderConfiguration::market_sell(base_size)
             }
         } else {
             return Err(Error::request("either quote_size or base_size is required"));
@@ -372,7 +372,7 @@ fn uuid_v4() -> String {
         .unwrap_or_default()
         .as_nanos();
 
-    // Simple UUID-like format using timestamp and random bits
+    // Simple UUID-like format using timestamp and random bits.
     format!(
         "{:08x}-{:04x}-4{:03x}-{:04x}-{:012x}",
         (now >> 96) as u32,
@@ -383,15 +383,15 @@ fn uuid_v4() -> String {
     )
 }
 
-// Add builder methods to RestClient
+// Add builder methods to RestClient.
 impl RestClient {
     /// Create a market order builder.
     ///
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -421,8 +421,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -446,8 +446,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -471,8 +471,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::StopDirection};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::StopDirection};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;

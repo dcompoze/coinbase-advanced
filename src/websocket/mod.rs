@@ -9,11 +9,11 @@
 //! # Example
 //!
 //! ```no_run
-//! use coinbase_client::websocket::{WebSocketClient, Channel};
+//! use coinbase_advanced::websocket::{WebSocketClient, Channel};
 //! use futures::StreamExt;
 //!
 //! #[tokio::main]
-//! async fn main() -> coinbase_client::Result<()> {
+//! async fn main() -> coinbase_advanced::Result<()> {
 //!     // For public data only
 //!     let client = WebSocketClient::builder()
 //!         .build()?;

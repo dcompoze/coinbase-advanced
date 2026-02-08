@@ -162,7 +162,7 @@ impl WebSocketClient {
             *sink = Some(public_sink);
         }
 
-        // If we have credentials, also connect to the user endpoint
+        // If we have credentials, also connect to the user endpoint.
         let user_stream = if self.credentials.is_some() {
             let (user_socket, _) = connect_async(USER_ENDPOINT).await.map_err(|e| {
                 Error::websocket(format!("Failed to connect to user WebSocket: {}", e))
@@ -197,7 +197,7 @@ impl WebSocketClient {
     async fn subscribe_one(&self, channel: &Channel) -> Result<()> {
         let endpoint = channel.endpoint_type();
 
-        // Check if we can subscribe to this channel
+        // Check if we can subscribe to this channel.
         if channel.requires_auth() && self.credentials.is_none() {
             return Err(Error::websocket(format!(
                 "Channel {:?} requires authentication",
@@ -208,7 +208,7 @@ impl WebSocketClient {
         let msg = self.build_subscription_message(channel, "subscribe")?;
         self.send_message(&endpoint, msg).await?;
 
-        // Track subscription
+        // Track subscription.
         {
             let mut subs = self.subscriptions.lock().await;
             subs.add(channel);
@@ -231,7 +231,7 @@ impl WebSocketClient {
         let msg = self.build_subscription_message(channel, "unsubscribe")?;
         self.send_message(&endpoint, msg).await?;
 
-        // Update subscription tracking
+        // Update subscription tracking.
         {
             let mut subs = self.subscriptions.lock().await;
             subs.remove(channel);
@@ -319,7 +319,7 @@ impl WebSocketClient {
 
             match self.attempt_reconnect().await {
                 Ok(streams) => {
-                    // Resubscribe to previous channels
+                    // Resubscribe to previous channels.
                     self.resubscribe().await?;
                     return Ok(streams);
                 }
@@ -340,7 +340,7 @@ impl WebSocketClient {
     /// Attempt a single reconnection.
     #[allow(dead_code)]
     async fn attempt_reconnect(&self) -> Result<(Option<WsStream>, Option<WsStream>)> {
-        // Reconnect to public endpoint
+        // Reconnect to public endpoint.
         let (public_socket, _) = connect_async(PUBLIC_ENDPOINT).await.map_err(|e| {
             Error::websocket(format!("Failed to reconnect to public WebSocket: {}", e))
         })?;
@@ -351,7 +351,7 @@ impl WebSocketClient {
             *sink = Some(public_sink);
         }
 
-        // Reconnect to user endpoint if we have credentials
+        // Reconnect to user endpoint if we have credentials.
         let user_stream = if self.credentials.is_some() {
             let (user_socket, _) = connect_async(USER_ENDPOINT).await.map_err(|e| {
                 Error::websocket(format!("Failed to reconnect to user WebSocket: {}", e))
@@ -373,19 +373,19 @@ impl WebSocketClient {
     /// Resubscribe to all previously subscribed channels.
     #[allow(dead_code)]
     async fn resubscribe(&self) -> Result<()> {
-        // Collect channels to resubscribe to
+        // Collect channels to resubscribe to.
         let channels_to_resubscribe: Vec<Channel> = {
             let subs = self.subscriptions.lock().await;
             let mut channels = Vec::new();
 
-            // Collect public channels
+            // Collect public channels.
             for (channel_name, product_ids) in &subs.public {
                 if let Some(ch) = self.channel_from_name(channel_name.clone(), product_ids.clone()) {
                     channels.push(ch);
                 }
             }
 
-            // Collect user channels
+            // Collect user channels.
             for (channel_name, product_ids) in &subs.user {
                 if let Some(ch) = self.channel_from_name(channel_name.clone(), product_ids.clone()) {
                     channels.push(ch);
@@ -395,7 +395,7 @@ impl WebSocketClient {
             channels
         };
 
-        // Now resubscribe without holding the lock
+        // Now resubscribe without holding the lock.
         for channel in channels_to_resubscribe {
             self.subscribe_one(&channel).await?;
         }
@@ -457,7 +457,7 @@ impl Stream for MessageStream {
     type Item = Result<Message>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        // Try to get a message from the public stream
+        // Try to get a message from the public stream.
         if let Some(ref mut stream) = self.public_stream {
             match Pin::new(stream).poll_next(cx) {
                 Poll::Ready(Some(Ok(ws_msg))) => {
@@ -472,14 +472,14 @@ impl Stream for MessageStream {
                     )))));
                 }
                 Poll::Ready(None) => {
-                    // Stream ended
+                    // Stream ended.
                     self.public_stream = None;
                 }
                 Poll::Pending => {}
             }
         }
 
-        // Try to get a message from the user stream
+        // Try to get a message from the user stream.
         if let Some(ref mut stream) = self.user_stream {
             match Pin::new(stream).poll_next(cx) {
                 Poll::Ready(Some(Ok(ws_msg))) => {
@@ -500,7 +500,7 @@ impl Stream for MessageStream {
             }
         }
 
-        // If both streams are gone, we're done
+        // If both streams are gone, we're done.
         if self.public_stream.is_none() && self.user_stream.is_none() {
             return Poll::Ready(None);
         }
@@ -524,7 +524,7 @@ fn process_ws_message(msg: WsMessage) -> Option<Result<Message>> {
                 frame
             ))))
         }
-        // Ignore ping/pong/binary frames
+        // Ignore ping/pong/binary frames.
         _ => None,
     }
 }

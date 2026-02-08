@@ -126,8 +126,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -145,8 +145,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -166,8 +166,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::RestClient;
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::RestClient;
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder().build()?;
     ///
     /// let time = client.public().get_time().await?;
@@ -184,8 +184,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::ListOrdersParams};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::ListOrdersParams};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -203,8 +203,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -223,8 +223,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -243,8 +243,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -265,8 +265,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -287,8 +287,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials, models::CreateConvertQuoteRequest};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials, models::CreateConvertQuoteRequest};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -307,8 +307,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -326,8 +326,8 @@ impl RestClient {
     /// # Example
     ///
     /// ```no_run
-    /// # use coinbase_client::{RestClient, Credentials};
-    /// # async fn example() -> coinbase_client::Result<()> {
+    /// # use coinbase_advanced::{RestClient, Credentials};
+    /// # async fn example() -> coinbase_advanced::Result<()> {
     /// let client = RestClient::builder()
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
@@ -433,14 +433,14 @@ impl RestClient {
         query: Option<&Q>,
         body: Option<&B>,
     ) -> Result<T> {
-        // Apply rate limiting if enabled
+        // Apply rate limiting if enabled.
         if let Some(ref limiter) = self.rate_limiter {
             limiter.acquire().await;
         }
 
         let mut url = self.build_url(endpoint)?;
 
-        // Add query parameters
+        // Add query parameters.
         if let Some(q) = query {
             let query_string = serde_urlencoded::to_string(q)
                 .map_err(|e| Error::request(format!("Failed to encode query: {}", e)))?;
@@ -449,7 +449,7 @@ impl RestClient {
             }
         }
 
-        // Build the path for JWT signing (includes query string)
+        // Build the path for JWT signing (includes query string).
         let path = if let Some(q) = url.query() {
             format!("{}?{}", url.path(), q)
         } else {
@@ -507,7 +507,7 @@ impl RestClient {
         query: Option<&Q>,
         body: Option<&B>,
     ) -> Result<T> {
-        // Apply rate limiting if enabled
+        // Apply rate limiting if enabled.
         if let Some(ref limiter) = self.rate_limiter {
             limiter.acquire().await;
         }
@@ -542,7 +542,7 @@ impl RestClient {
     async fn handle_response<T: DeserializeOwned>(&self, response: Response) -> Result<T> {
         let status = response.status();
 
-        // Check for rate limiting
+        // Check for rate limiting.
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
             let retry_after = response
                 .headers()
@@ -556,9 +556,9 @@ impl RestClient {
 
         let body = response.text().await.map_err(Error::Http)?;
 
-        // Check for error status codes
+        // Check for error status codes.
         if !status.is_success() {
-            // Try to parse error message from response
+            // Try to parse error message from response.
             let message = serde_json::from_str::<serde_json::Value>(&body)
                 .ok()
                 .and_then(|v| {
@@ -573,7 +573,7 @@ impl RestClient {
             return Err(Error::api(status.as_u16(), message, Some(body)));
         }
 
-        // Parse successful response
+        // Parse successful response.
         serde_json::from_str(&body).map_err(|e| {
             Error::parse(
                 format!("Failed to parse response: {}", e),

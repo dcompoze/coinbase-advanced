@@ -30,7 +30,7 @@ impl Credentials {
     ///
     /// # Example
     /// ```no_run
-    /// use coinbase_client::Credentials;
+    /// use coinbase_advanced::Credentials;
     ///
     /// let creds = Credentials::new(
     ///     "organizations/xxx/apiKeys/yyy",
@@ -41,7 +41,7 @@ impl Credentials {
         let api_key = api_key.into();
         let private_key = private_key.into();
 
-        // Basic validation
+        // Basic validation.
         if api_key.is_empty() {
             return Err(Error::config("API key cannot be empty"));
         }
@@ -75,7 +75,7 @@ impl Credentials {
         let private_key = env::var("COINBASE_PRIVATE_KEY")
             .map_err(|_| Error::config("COINBASE_PRIVATE_KEY environment variable not set"))?;
 
-        // Handle escaped newlines in environment variable
+        // Handle escaped newlines in environment variable.
         let private_key = private_key.replace("\\n", "\n");
 
         Self::new(api_key, private_key)

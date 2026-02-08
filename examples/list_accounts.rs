@@ -7,7 +7,7 @@
 //! - COINBASE_API_KEY
 //! - COINBASE_PRIVATE_KEY
 
-use coinbase_client::{Credentials, RestClient};
+use coinbase_advanced::{Credentials, RestClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

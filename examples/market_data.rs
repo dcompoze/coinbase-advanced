@@ -3,7 +3,7 @@
 //! This example demonstrates how to fetch market data including
 //! products, prices, and order book data.
 
-use coinbase_client::{
+use coinbase_advanced::{
     models::{GetProductBookParams, ListProductsParams},
     Credentials, RestClient,
 };
