@@ -19,9 +19,7 @@ async fn main() -> coinbase_advanced::Result<()> {
     println!("Loaded credentials for: {}", credentials.api_key());
 
     // Build the client
-    let client = RestClient::builder()
-        .credentials(credentials)
-        .build()?;
+    let client = RestClient::builder().credentials(credentials).build()?;
 
     // Get server time (public endpoint)
     println!("\n--- Server Time ---");
@@ -52,9 +50,7 @@ async fn main() -> coinbase_advanced::Result<()> {
     for product in response.products.iter().take(5) {
         println!(
             "{}: {} @ ${}",
-            product.product_id,
-            product.base_name,
-            product.price
+            product.product_id, product.base_name, product.price
         );
     }
     println!("Total products: {}", response.products.len());

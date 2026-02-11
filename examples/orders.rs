@@ -45,15 +45,14 @@ async fn main() -> coinbase_advanced::Result<()> {
 
     // List recent fills
     println!("\n--- Recent Fills ---");
-    let fills_response = client.orders().list_fills(ListFillsParams::default()).await?;
+    let fills_response = client
+        .orders()
+        .list_fills(ListFillsParams::default())
+        .await?;
     for fill in fills_response.fills.iter().take(5) {
         println!(
             "{}: {} {} @ {} (fee: {})",
-            fill.trade_id,
-            fill.product_id,
-            fill.size,
-            fill.price,
-            fill.commission
+            fill.trade_id, fill.product_id, fill.size, fill.price, fill.commission
         );
     }
 

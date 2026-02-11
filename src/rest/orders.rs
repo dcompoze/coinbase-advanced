@@ -4,8 +4,8 @@ use crate::client::RestClient;
 use crate::error::Result;
 use crate::models::{
     CancelOrdersRequest, CancelOrdersResponse, ClosePositionRequest, CreateOrderRequest,
-    CreateOrderResponse, EditOrderRequest, EditOrderResponse, ListFillsParams,
-    ListFillsResponse, ListOrdersParams, ListOrdersResponse, Order,
+    CreateOrderResponse, EditOrderRequest, EditOrderResponse, ListFillsParams, ListFillsResponse,
+    ListOrdersParams, ListOrdersResponse, Order,
 };
 
 /// Response from getting a single order.
@@ -197,7 +197,10 @@ impl<'a> OrdersApi<'a> {
     /// Close a position.
     ///
     /// This creates a market order to close an existing position.
-    pub async fn close_position(&self, request: ClosePositionRequest) -> Result<CreateOrderResponse> {
+    pub async fn close_position(
+        &self,
+        request: ClosePositionRequest,
+    ) -> Result<CreateOrderResponse> {
         self.client.post("/orders/close_position", &request).await
     }
 }

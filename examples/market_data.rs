@@ -4,8 +4,8 @@
 //! products, prices, and order book data.
 
 use coinbase_advanced::{
-    models::{GetProductBookParams, ListProductsParams},
     Credentials, RestClient,
+    models::{GetProductBookParams, ListProductsParams},
 };
 
 #[tokio::main]

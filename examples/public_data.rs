@@ -1,6 +1,6 @@
 //! Example: Get public market data (no auth required)
 
-use coinbase_advanced::{models::ListProductsParams, RestClient};
+use coinbase_advanced::{RestClient, models::ListProductsParams};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -21,10 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     for product in &products.products {
-        println!(
-            "{:10} | Price: {:>12}",
-            product.product_id, product.price
-        );
+        println!("{:10} | Price: {:>12}", product.product_id, product.price);
     }
 
     Ok(())

@@ -152,8 +152,7 @@ impl<'a> ProductsApi<'a> {
     /// ```
     pub async fn get_candles(&self, params: GetCandlesParams) -> Result<Vec<Candle>> {
         let endpoint = format!("/products/{}/candles", params.product_id);
-        let response: GetCandlesResponse =
-            self.client.get_with_query(&endpoint, &params).await?;
+        let response: GetCandlesResponse = self.client.get_with_query(&endpoint, &params).await?;
         Ok(response.candles)
     }
 

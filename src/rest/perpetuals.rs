@@ -65,11 +65,7 @@ impl<'a> PerpetualsApi<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn get_position(
-        &self,
-        portfolio_uuid: &str,
-        symbol: &str,
-    ) -> Result<IntxPosition> {
+    pub async fn get_position(&self, portfolio_uuid: &str, symbol: &str) -> Result<IntxPosition> {
         let endpoint = format!("/intx/positions/{}/{}", portfolio_uuid, symbol);
         let response: GetPerpetualsPositionResponse = self.client.get(&endpoint).await?;
         Ok(response.position)

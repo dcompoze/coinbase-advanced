@@ -5,7 +5,9 @@
 
 use crate::client::RestClient;
 use crate::error::{Error, Result};
-use crate::models::{CreateOrderRequest, CreateOrderResponse, OrderConfiguration, OrderSide, StopDirection};
+use crate::models::{
+    CreateOrderRequest, CreateOrderResponse, OrderConfiguration, OrderSide, StopDirection,
+};
 
 /// Builder for market orders.
 pub struct MarketOrderBuilder<'a> {
@@ -70,9 +72,11 @@ impl<'a> MarketOrderBuilder<'a> {
 
     /// Build and send the order.
     pub async fn send(self) -> Result<CreateOrderResponse> {
-        let product_id = self.product_id
+        let product_id = self
+            .product_id
             .ok_or_else(|| Error::request("product_id is required"))?;
-        let side = self.side
+        let side = self
+            .side
             .ok_or_else(|| Error::request("side is required (use .buy() or .sell())"))?;
 
         let config = if let Some(quote_size) = self.quote_size {
@@ -87,8 +91,7 @@ impl<'a> MarketOrderBuilder<'a> {
             return Err(Error::request("either quote_size or base_size is required"));
         };
 
-        let client_order_id = self.client_order_id
-            .unwrap_or_else(uuid_v4);
+        let client_order_id = self.client_order_id.unwrap_or_else(uuid_v4);
 
         let request = CreateOrderRequest::new(client_order_id, product_id, side, config);
         self.client.orders().create(request).await
@@ -160,13 +163,17 @@ impl<'a> LimitOrderGtcBuilder<'a> {
 
     /// Build and send the order.
     pub async fn send(self) -> Result<CreateOrderResponse> {
-        let product_id = self.product_id
+        let product_id = self
+            .product_id
             .ok_or_else(|| Error::request("product_id is required"))?;
-        let side = self.side
+        let side = self
+            .side
             .ok_or_else(|| Error::request("side is required (use .buy() or .sell())"))?;
-        let base_size = self.base_size
+        let base_size = self
+            .base_size
             .ok_or_else(|| Error::request("base_size is required"))?;
-        let limit_price = self.limit_price
+        let limit_price = self
+            .limit_price
             .ok_or_else(|| Error::request("limit_price is required"))?;
 
         let config = OrderConfiguration::limit_gtc(base_size, limit_price, self.post_only);
@@ -250,18 +257,24 @@ impl<'a> LimitOrderGtdBuilder<'a> {
 
     /// Build and send the order.
     pub async fn send(self) -> Result<CreateOrderResponse> {
-        let product_id = self.product_id
+        let product_id = self
+            .product_id
             .ok_or_else(|| Error::request("product_id is required"))?;
-        let side = self.side
+        let side = self
+            .side
             .ok_or_else(|| Error::request("side is required (use .buy() or .sell())"))?;
-        let base_size = self.base_size
+        let base_size = self
+            .base_size
             .ok_or_else(|| Error::request("base_size is required"))?;
-        let limit_price = self.limit_price
+        let limit_price = self
+            .limit_price
             .ok_or_else(|| Error::request("limit_price is required"))?;
-        let end_time = self.end_time
+        let end_time = self
+            .end_time
             .ok_or_else(|| Error::request("end_time is required"))?;
 
-        let config = OrderConfiguration::limit_gtd(base_size, limit_price, end_time, self.post_only);
+        let config =
+            OrderConfiguration::limit_gtd(base_size, limit_price, end_time, self.post_only);
         let client_order_id = self.client_order_id.unwrap_or_else(uuid_v4);
 
         let request = CreateOrderRequest::new(client_order_id, product_id, side, config);
@@ -342,20 +355,27 @@ impl<'a> StopLimitOrderGtcBuilder<'a> {
 
     /// Build and send the order.
     pub async fn send(self) -> Result<CreateOrderResponse> {
-        let product_id = self.product_id
+        let product_id = self
+            .product_id
             .ok_or_else(|| Error::request("product_id is required"))?;
-        let side = self.side
+        let side = self
+            .side
             .ok_or_else(|| Error::request("side is required (use .buy() or .sell())"))?;
-        let base_size = self.base_size
+        let base_size = self
+            .base_size
             .ok_or_else(|| Error::request("base_size is required"))?;
-        let limit_price = self.limit_price
+        let limit_price = self
+            .limit_price
             .ok_or_else(|| Error::request("limit_price is required"))?;
-        let stop_price = self.stop_price
+        let stop_price = self
+            .stop_price
             .ok_or_else(|| Error::request("stop_price is required"))?;
-        let stop_direction = self.stop_direction
+        let stop_direction = self
+            .stop_direction
             .ok_or_else(|| Error::request("stop_direction is required"))?;
 
-        let config = OrderConfiguration::stop_limit_gtc(base_size, limit_price, stop_price, stop_direction);
+        let config =
+            OrderConfiguration::stop_limit_gtc(base_size, limit_price, stop_price, stop_direction);
         let client_order_id = self.client_order_id.unwrap_or_else(uuid_v4);
 
         let request = CreateOrderRequest::new(client_order_id, product_id, side, config);

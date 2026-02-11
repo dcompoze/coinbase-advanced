@@ -36,8 +36,7 @@ impl<'a> PaymentMethodsApi<'a> {
     /// # }
     /// ```
     pub async fn list(&self) -> Result<Vec<PaymentMethod>> {
-        let response: ListPaymentMethodsResponse =
-            self.client.get("/payment_methods").await?;
+        let response: ListPaymentMethodsResponse = self.client.get("/payment_methods").await?;
         Ok(response.payment_methods)
     }
 

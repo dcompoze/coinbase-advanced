@@ -111,10 +111,7 @@ impl<'a> ConvertApi<'a> {
         params: GetConvertTradeParams,
     ) -> Result<ConvertTrade> {
         let endpoint = format!("/convert/trade/{}", trade_id);
-        let response: ConvertTradeResponse = self
-            .client
-            .get_with_query(&endpoint, &params)
-            .await?;
+        let response: ConvertTradeResponse = self.client.get_with_query(&endpoint, &params).await?;
         Ok(response.trade)
     }
 }

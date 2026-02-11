@@ -14,9 +14,7 @@ async fn main() -> coinbase_advanced::Result<()> {
     println!("Connecting to Coinbase WebSocket...");
 
     // Build a WebSocket client (no auth needed for public channels)
-    let client = WebSocketClient::builder()
-        .auto_reconnect(true)
-        .build()?;
+    let client = WebSocketClient::builder().auto_reconnect(true).build()?;
 
     // Connect to WebSocket
     let mut stream = client.connect().await?;

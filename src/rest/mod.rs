@@ -18,7 +18,9 @@ pub use convert::ConvertApi;
 pub use data::DataApi;
 pub use fees::FeesApi;
 pub use futures::FuturesApi;
-pub use order_builder::{LimitOrderGtcBuilder, LimitOrderGtdBuilder, MarketOrderBuilder, StopLimitOrderGtcBuilder};
+pub use order_builder::{
+    LimitOrderGtcBuilder, LimitOrderGtdBuilder, MarketOrderBuilder, StopLimitOrderGtcBuilder,
+};
 pub use orders::OrdersApi;
 pub use payment_methods::PaymentMethodsApi;
 pub use perpetuals::PerpetualsApi;

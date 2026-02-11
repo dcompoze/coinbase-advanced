@@ -58,9 +58,9 @@ mod credentials;
 mod error;
 mod jwt;
 
-pub mod rest;
 pub mod models;
 pub mod rate_limit;
+pub mod rest;
 pub mod ws;
 
 // Re-export main types.

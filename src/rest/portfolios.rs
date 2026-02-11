@@ -60,10 +60,8 @@ impl<'a> PortfoliosApi<'a> {
     /// # }
     /// ```
     pub async fn list_with_params(&self, params: ListPortfoliosParams) -> Result<Vec<Portfolio>> {
-        let response: ListPortfoliosResponse = self
-            .client
-            .get_with_query("/portfolios", &params)
-            .await?;
+        let response: ListPortfoliosResponse =
+            self.client.get_with_query("/portfolios", &params).await?;
         Ok(response.portfolios)
     }
 

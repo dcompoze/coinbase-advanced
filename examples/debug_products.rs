@@ -1,6 +1,6 @@
 //! Debug: Test products endpoint
 
-use coinbase_advanced::{models::ListProductsParams, Credentials, RestClient};
+use coinbase_advanced::{Credentials, RestClient, models::ListProductsParams};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -15,7 +15,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Try the authenticated products endpoint
     println!("Trying authenticated products endpoint...");
-    match client.products().list(ListProductsParams::new().limit(1)).await {
+    match client
+        .products()
+        .list(ListProductsParams::new().limit(1))
+        .await
+    {
         Ok(products) => {
             println!("Success! Got {} products", products.products.len());
         }

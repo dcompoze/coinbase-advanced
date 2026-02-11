@@ -1,7 +1,7 @@
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
+use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
 use reqwest::{Client, Method, Response};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::time::Duration;
 use url::Url;
 
@@ -10,9 +10,12 @@ use crate::constants::{
 };
 use crate::credentials::Credentials;
 use crate::error::{Error, Result};
-use crate::rest::{AccountsApi, ConvertApi, DataApi, FeesApi, FuturesApi, OrdersApi, PaymentMethodsApi, PerpetualsApi, PortfoliosApi, ProductsApi, PublicApi};
 use crate::jwt::generate_jwt;
 use crate::rate_limit::RateLimiter;
+use crate::rest::{
+    AccountsApi, ConvertApi, DataApi, FeesApi, FuturesApi, OrdersApi, PaymentMethodsApi,
+    PerpetualsApi, PortfoliosApi, ProductsApi, PublicApi,
+};
 
 /// Builder for constructing a [`RestClient`].
 #[derive(Debug, Clone)]
@@ -358,10 +361,7 @@ impl RestClient {
 
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
-        headers.insert(
-            USER_AGENT,
-            HeaderValue::from_static(UA),
-        );
+        headers.insert(USER_AGENT, HeaderValue::from_static(UA));
 
         if let Some(ref credentials) = self.credentials {
             let jwt = generate_jwt(credentials, method, path)?;
@@ -464,10 +464,7 @@ impl RestClient {
             request = request.json(b);
         }
 
-        let response = request
-            .send()
-            .await
-            .map_err(Error::Http)?;
+        let response = request.send().await.map_err(Error::Http)?;
 
         self.handle_response(response).await
     }
@@ -574,12 +571,8 @@ impl RestClient {
         }
 
         // Parse successful response.
-        serde_json::from_str(&body).map_err(|e| {
-            Error::parse(
-                format!("Failed to parse response: {}", e),
-                Some(body),
-            )
-        })
+        serde_json::from_str(&body)
+            .map_err(|e| Error::parse(format!("Failed to parse response: {}", e), Some(body)))
     }
 }
 

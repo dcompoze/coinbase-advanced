@@ -11,7 +11,7 @@ use futures::{SinkExt, Stream, StreamExt};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use tokio_tungstenite::tungstenite::Message as WsMessage;
-use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async};
 
 use super::channels::{Channel, ChannelName, EndpointType};
 use super::messages::Message;
@@ -109,9 +109,7 @@ impl Subscriptions {
             EndpointType::User => &mut self.user,
         };
 
-        map.entry(name)
-            .or_default()
-            .extend(product_ids);
+        map.entry(name).or_default().extend(product_ids);
     }
 
     fn remove(&mut self, channel: &Channel) {
@@ -278,9 +276,10 @@ impl WebSocketClient {
 
     /// Generate a JWT for WebSocket authentication.
     fn generate_jwt(&self) -> Result<String> {
-        let credentials = self.credentials.as_ref().ok_or_else(|| {
-            Error::websocket("Credentials required for authenticated channels")
-        })?;
+        let credentials = self
+            .credentials
+            .as_ref()
+            .ok_or_else(|| Error::websocket("Credentials required for authenticated channels"))?;
         generate_ws_jwt(credentials)
     }
 
@@ -299,9 +298,9 @@ impl WebSocketClient {
             ))
         })?;
 
-        sink.send(msg).await.map_err(|e| {
-            Error::websocket(format!("Failed to send message: {}", e))
-        })
+        sink.send(msg)
+            .await
+            .map_err(|e| Error::websocket(format!("Failed to send message: {}", e)))
     }
 
     /// Attempt to reconnect after a connection loss.
@@ -380,14 +379,16 @@ impl WebSocketClient {
 
             // Collect public channels.
             for (channel_name, product_ids) in &subs.public {
-                if let Some(ch) = self.channel_from_name(channel_name.clone(), product_ids.clone()) {
+                if let Some(ch) = self.channel_from_name(channel_name.clone(), product_ids.clone())
+                {
                     channels.push(ch);
                 }
             }
 
             // Collect user channels.
             for (channel_name, product_ids) in &subs.user {
-                if let Some(ch) = self.channel_from_name(channel_name.clone(), product_ids.clone()) {
+                if let Some(ch) = self.channel_from_name(channel_name.clone(), product_ids.clone())
+                {
                     channels.push(ch);
                 }
             }
@@ -518,12 +519,10 @@ fn process_ws_message(msg: WsMessage) -> Option<Result<Message>> {
             });
             Some(result)
         }
-        WsMessage::Close(frame) => {
-            Some(Err(Error::websocket(format!(
-                "WebSocket closed: {:?}",
-                frame
-            ))))
-        }
+        WsMessage::Close(frame) => Some(Err(Error::websocket(format!(
+            "WebSocket closed: {:?}",
+            frame
+        )))),
         // Ignore ping/pong/binary frames.
         _ => None,
     }

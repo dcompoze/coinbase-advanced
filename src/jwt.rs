@@ -1,5 +1,5 @@
 use ring::rand::SystemRandom;
-use ring::signature::{EcdsaKeyPair, ECDSA_P256_SHA256_FIXED_SIGNING};
+use ring::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, EcdsaKeyPair};
 use serde::Serialize;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -113,10 +113,12 @@ fn sign_jwt<H: Serialize, C: Serialize>(
 ) -> Result<String> {
     // Encode header and claims.
     let header_b64 = base64_url_encode(
-        &serde_json::to_vec(header).map_err(|e| Error::jwt(format!("Failed to encode header: {}", e)))?,
+        &serde_json::to_vec(header)
+            .map_err(|e| Error::jwt(format!("Failed to encode header: {}", e)))?,
     );
     let claims_b64 = base64_url_encode(
-        &serde_json::to_vec(claims).map_err(|e| Error::jwt(format!("Failed to encode claims: {}", e)))?,
+        &serde_json::to_vec(claims)
+            .map_err(|e| Error::jwt(format!("Failed to encode claims: {}", e)))?,
     );
 
     // Create signing input.
@@ -154,9 +156,17 @@ fn parse_ec_private_key_pem(pem: &str) -> Result<Vec<u8>> {
 
     // Handle both "EC PRIVATE KEY" (SEC1) and "PRIVATE KEY" (PKCS#8) formats.
     let (start_marker, end_marker, is_sec1) = if pem.contains("BEGIN EC PRIVATE KEY") {
-        ("-----BEGIN EC PRIVATE KEY-----", "-----END EC PRIVATE KEY-----", true)
+        (
+            "-----BEGIN EC PRIVATE KEY-----",
+            "-----END EC PRIVATE KEY-----",
+            true,
+        )
     } else if pem.contains("BEGIN PRIVATE KEY") {
-        ("-----BEGIN PRIVATE KEY-----", "-----END PRIVATE KEY-----", false)
+        (
+            "-----BEGIN PRIVATE KEY-----",
+            "-----END PRIVATE KEY-----",
+            false,
+        )
     } else {
         return Err(Error::jwt("Invalid PEM format: missing BEGIN marker"));
     };
@@ -295,9 +305,18 @@ fn base64_decode(input: &str) -> Result<Vec<u8>> {
     let mut i = 0;
     while i < input.len() {
         let b0 = lookup[input[i] as usize] as usize;
-        let b1 = input.get(i + 1).map(|&b| lookup[b as usize] as usize).unwrap_or(0);
-        let b2 = input.get(i + 2).map(|&b| lookup[b as usize] as usize).unwrap_or(0);
-        let b3 = input.get(i + 3).map(|&b| lookup[b as usize] as usize).unwrap_or(0);
+        let b1 = input
+            .get(i + 1)
+            .map(|&b| lookup[b as usize] as usize)
+            .unwrap_or(0);
+        let b2 = input
+            .get(i + 2)
+            .map(|&b| lookup[b as usize] as usize)
+            .unwrap_or(0);
+        let b3 = input
+            .get(i + 3)
+            .map(|&b| lookup[b as usize] as usize)
+            .unwrap_or(0);
 
         if b0 == 255 || b1 == 255 {
             return Err(Error::jwt("Invalid base64 character"));

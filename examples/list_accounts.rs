@@ -24,9 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Loaded credentials for: {}", credentials.api_key());
 
     // Build the client
-    let client = RestClient::builder()
-        .credentials(credentials)
-        .build()?;
+    let client = RestClient::builder().credentials(credentials).build()?;
 
     println!("Fetching accounts...\n");
 
