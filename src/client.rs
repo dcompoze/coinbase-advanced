@@ -10,7 +10,7 @@ use crate::constants::{
 };
 use crate::credentials::Credentials;
 use crate::error::{Error, Result};
-use crate::api::{AccountsApi, ConvertApi, DataApi, FeesApi, FuturesApi, OrdersApi, PaymentMethodsApi, PerpetualsApi, PortfoliosApi, ProductsApi, PublicApi};
+use crate::rest::{AccountsApi, ConvertApi, DataApi, FeesApi, FuturesApi, OrdersApi, PaymentMethodsApi, PerpetualsApi, PortfoliosApi, ProductsApi, PublicApi};
 use crate::jwt::generate_jwt;
 use crate::rate_limit::RateLimiter;
 

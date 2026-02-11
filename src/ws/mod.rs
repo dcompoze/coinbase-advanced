@@ -9,7 +9,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use coinbase_advanced::websocket::{WebSocketClient, Channel};
+//! use coinbase_advanced::ws::{WebSocketClient, Channel};
 //! use futures::StreamExt;
 //!
 //! #[tokio::main]

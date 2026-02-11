@@ -58,10 +58,10 @@ mod credentials;
 mod error;
 mod jwt;
 
-pub mod api;
+pub mod rest;
 pub mod models;
 pub mod rate_limit;
-pub mod websocket;
+pub mod ws;
 
 // Re-export main types.
 pub use client::{RestClient, RestClientBuilder};
@@ -69,7 +69,7 @@ pub use credentials::Credentials;
 pub use error::{Error, Result};
 
 // Re-export API types for convenience.
-pub use api::{
+pub use rest::{
     AccountsApi, ConvertApi, DataApi, FeesApi, FuturesApi, OrdersApi, PaymentMethodsApi,
     PerpetualsApi, PortfoliosApi, ProductsApi, PublicApi, ServerTime,
 };

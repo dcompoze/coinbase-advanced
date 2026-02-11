@@ -1,10 +1,10 @@
 //! WebSocket streaming example.
 //!
-//! Run with: cargo run --example websocket
+//! Run with: cargo run --example ws
 //!
 //! This example connects to the public WebSocket and streams ticker updates.
 
-use coinbase_advanced::websocket::{Channel, WebSocketClient};
+use coinbase_advanced::ws::{Channel, WebSocketClient};
 use futures::StreamExt;
 
 #[tokio::main]
@@ -43,7 +43,7 @@ async fn main() -> coinbase_advanced::Result<()> {
             Ok(message) => {
                 println!("Message #{}: {:?}", count + 1, message.channel);
                 match &message.events {
-                    coinbase_advanced::websocket::Events::Ticker(tickers) => {
+                    coinbase_advanced::ws::Events::Ticker(tickers) => {
                         for event in tickers {
                             for ticker in &event.tickers {
                                 println!(
@@ -53,7 +53,7 @@ async fn main() -> coinbase_advanced::Result<()> {
                             }
                         }
                     }
-                    coinbase_advanced::websocket::Events::Heartbeats(hbs) => {
+                    coinbase_advanced::ws::Events::Heartbeats(hbs) => {
                         for hb in hbs {
                             println!("  Heartbeat #{}", hb.heartbeat_counter);
                         }

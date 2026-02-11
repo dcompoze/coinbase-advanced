@@ -6,14 +6,13 @@ A Rust async client library for the [Coinbase Advanced Trade API](https://docs.c
 - WebSocket support for real-time market data
 - JWT (ES256) authentication
 - Optional client-side rate limiting
-- Async/await with Tokio
+- Async/await with Tokio/Reqwest
 
-# Usage
+## Library
 
-## Authentication
+Authentication:
 
 Obtain API credentials from the [Coinbase Developer Platform](https://portal.cdp.coinbase.com/).
-You need an API key and an EC private key in PEM format.
 
 ```rust
 use coinbase_advanced::{Credentials, RestClient};
@@ -30,7 +29,7 @@ async fn main() -> coinbase_advanced::Result<()> {
 }
 ```
 
-## Get account balances
+Get account balances:
 
 ```rust
 use coinbase_advanced::{Credentials, RestClient};
@@ -50,7 +49,7 @@ async fn main() -> coinbase_advanced::Result<()> {
 }
 ```
 
-## Place an order
+Place an order:
 
 ```rust
 use coinbase_advanced::{Credentials, RestClient};
@@ -72,10 +71,10 @@ async fn main() -> coinbase_advanced::Result<()> {
 }
 ```
 
-## WebSocket streaming
+WebSocket streaming:
 
 ```rust
-use coinbase_advanced::websocket::{WebSocketClient, Channel};
+use coinbase_advanced::ws::{WebSocketClient, Channel};
 use futures::StreamExt;
 
 #[tokio::main]
@@ -95,52 +94,56 @@ async fn main() -> coinbase_advanced::Result<()> {
 }
 ```
 
-## Configuration
-
-## Sandbox mode
+Configuration:
 
 ```rust
 let client = RestClient::builder()
     .credentials(Credentials::from_env()?)
     .sandbox(true)
-    .build()?;
-```
-
-## Rate limiting
-
-```rust
-let client = RestClient::builder()
-    .credentials(Credentials::from_env()?)
     .rate_limiting(true)
     .build()?;
 ```
 
-# API coverage
+## API coverage
 
-| REST API | WebSocket channels |
-|----------|-------------------|
-| Accounts | Heartbeats |
-| Products | Ticker |
-| Orders | Level2 |
-| Fees | Candles |
-| Portfolios | Market Trades |
-| Convert | User |
-| Data | Status |
-| Payment Methods | |
-| Perpetuals | |
-| Futures | |
-| Public | |
+REST endpoints:
 
-# Examples
+| Endpoint type | Implementation |
+|----------|------------------------|
+| Accounts | ✓ |
+| Products | ✓ |
+| Orders | ✓ |
+| Fees | ✓ |
+| Portfolios | ✓ |
+| Convert | ✓ |
+| Data | ✓ |
+| Payment methods | ✓ |
+| Perpetuals | ✓ |
+| Futures | ✓ |
+| Public | ✓ |
 
-See the [examples](examples/) directory:
+WebSocket endpoints:
 
-- `basic.rs` - Account and product queries
-- `orders.rs` - Order placement and management
-- `websocket.rs` - Real-time streaming
+| Endpoint type | Implementation |
+|----------|------------------------|
+| Heartbeats | ✓ |
+| Status | ✓ |
+| Ticker | ✓ |
+| Ticker batch | ✓ |
+| Level2 | ✓ |
+| Candles | ✓ |
+| Market trades | ✓ |
+| User | ✓ |
+| Futures balance summary | ✓ |
 
-Run examples with:
+## Project structure
 
-```sh
-cargo run --example basic
+```text
+.
+├── src/                         # Core library implementation
+│   ├── rest/                    # REST API client modules (accounts, orders, products, etc.)
+│   ├── models/                  # Request/response types and shared data models
+│   ├── ws/                      # WebSocket client, channels, and message parsing
+├── examples/                    # Runnable usage examples for common API workflows
+└── tests/                       # Integration tests for end-to-end API behavior
 ```

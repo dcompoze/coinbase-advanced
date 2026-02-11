@@ -267,8 +267,8 @@ mod rate_limit {
     }
 }
 
-mod websocket {
-    use coinbase_advanced::websocket::{Channel, ChannelName, EndpointType, Message};
+mod ws {
+    use coinbase_advanced::ws::{Channel, ChannelName, EndpointType, Message};
 
     #[test]
     fn test_channel_types() {
