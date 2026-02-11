@@ -9,7 +9,7 @@ name = "coinbase-advanced"
 readme = "README.md"
 repository = "https://github.com/dcompoze/coinbase-advanced"
 rust-version = "1.85"
-version = "0.1.0"
+version = "1.0.0"
 
 [lib]
 name = "coinbase_advanced"
