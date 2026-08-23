@@ -4,8 +4,9 @@ use crate::client::RestClient;
 use crate::error::Result;
 use crate::models::{
     CancelOrdersRequest, CancelOrdersResponse, ClosePositionRequest, CreateOrderRequest,
-    CreateOrderResponse, EditOrderRequest, EditOrderResponse, ListFillsParams, ListFillsResponse,
-    ListOrdersParams, ListOrdersResponse, Order,
+    CreateOrderResponse, EditOrderPreviewResponse, EditOrderRequest, EditOrderResponse, Fill,
+    ListFillsParams, ListFillsResponse, ListOrdersParams, ListOrdersResponse, Order,
+    PreviewOrderResponse,
 };
 
 /// Response from getting a single order.
@@ -62,7 +63,7 @@ impl<'a> OrdersApi<'a> {
     /// Preview an order without executing it.
     ///
     /// Returns the expected fees and total for the order.
-    pub async fn preview(&self, request: CreateOrderRequest) -> Result<serde_json::Value> {
+    pub async fn preview(&self, request: CreateOrderRequest) -> Result<PreviewOrderResponse> {
         self.client.post("/orders/preview", &request).await
     }
 
@@ -74,7 +75,10 @@ impl<'a> OrdersApi<'a> {
     }
 
     /// Preview an order edit.
-    pub async fn preview_edit(&self, request: EditOrderRequest) -> Result<serde_json::Value> {
+    pub async fn preview_edit(
+        &self,
+        request: EditOrderRequest,
+    ) -> Result<EditOrderPreviewResponse> {
         self.client.post("/orders/edit_preview", &request).await
     }
 
@@ -108,6 +112,23 @@ impl<'a> OrdersApi<'a> {
         self.client.post("/orders/batch_cancel", &request).await
     }
 
+    /// Cancel all open orders for a product.
+    ///
+    /// This is a convenience helper that lists open orders for the product
+    /// and batch-cancels them. Returns `None` when there is nothing to cancel.
+    pub async fn cancel_all(&self, product_id: &str) -> Result<Option<CancelOrdersResponse>> {
+        let params = ListOrdersParams::new()
+            .product_id(product_id)
+            .status("OPEN");
+        let open_orders = self.list_all(params).await?;
+        let order_ids: Vec<String> = open_orders.into_iter().map(|o| o.order_id).collect();
+        if order_ids.is_empty() {
+            return Ok(None);
+        }
+        let response = self.cancel(CancelOrdersRequest::new(order_ids)).await?;
+        Ok(Some(response))
+    }
+
     /// List orders.
     ///
     /// # Example
@@ -139,9 +160,38 @@ impl<'a> OrdersApi<'a> {
             .await
     }
 
-    /// List all orders with default parameters.
-    pub async fn list_all(&self) -> Result<ListOrdersResponse> {
-        self.list(ListOrdersParams::default()).await
+    /// List all orders matching the parameters, following pagination cursors until exhausted.
+    pub async fn list_all(&self, params: ListOrdersParams) -> Result<Vec<Order>> {
+        let mut orders = Vec::new();
+        let mut params = params;
+        loop {
+            let response = self.list(params.clone()).await?;
+            orders.extend(response.orders);
+            match (response.has_next, response.cursor) {
+                (true, Some(cursor)) if !cursor.is_empty() => {
+                    params.cursor = Some(cursor);
+                }
+                _ => break,
+            }
+        }
+        Ok(orders)
+    }
+
+    /// List all fills matching the parameters, following pagination cursors until exhausted.
+    pub async fn list_fills_all(&self, params: ListFillsParams) -> Result<Vec<Fill>> {
+        let mut fills = Vec::new();
+        let mut params = params;
+        loop {
+            let response = self.list_fills(params.clone()).await?;
+            fills.extend(response.fills);
+            match response.cursor {
+                Some(cursor) if !cursor.is_empty() => {
+                    params.cursor = Some(cursor);
+                }
+                _ => break,
+            }
+        }
+        Ok(fills)
     }
 
     /// Get a single order by ID.

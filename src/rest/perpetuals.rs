@@ -6,6 +6,7 @@ use crate::models::{
     AllocatePortfolioRequest, GetPerpetualsPortfolioSummaryResponse, GetPerpetualsPositionResponse,
     GetPortfolioBalancesResponse, IntxPortfolioSummary, IntxPosition,
     ListPerpetualsPositionsResponse, SetMultiAssetCollateralRequest,
+    SetMultiAssetCollateralResponse,
 };
 
 /// API for perpetuals (INTX) trading.
@@ -174,10 +175,11 @@ impl<'a> PerpetualsApi<'a> {
     pub async fn set_multi_asset_collateral(
         &self,
         portfolio_uuid: &str,
-        request: SetMultiAssetCollateralRequest,
-    ) -> Result<()> {
-        let endpoint = format!("/intx/balances/{}", portfolio_uuid);
-        let _response: serde_json::Value = self.client.post(&endpoint, &request).await?;
-        Ok(())
+        mut request: SetMultiAssetCollateralRequest,
+    ) -> Result<SetMultiAssetCollateralResponse> {
+        request.portfolio_uuid = Some(portfolio_uuid.to_string());
+        self.client
+            .post("/intx/multi_asset_collateral", &request)
+            .await
     }
 }

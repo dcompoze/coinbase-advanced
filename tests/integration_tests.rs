@@ -303,3 +303,103 @@ mod ws {
         assert_eq!(msg.sequence_num, 1);
     }
 }
+
+fn test_account_json(uuid: &str) -> serde_json::Value {
+    serde_json::json!({
+        "uuid": uuid,
+        "name": "BTC Wallet",
+        "currency": "BTC",
+        "available_balance": {"value": "1.0", "currency": "BTC"},
+        "default": true,
+        "active": true,
+        "created_at": "2024-01-15T12:00:00Z",
+        "updated_at": "2024-01-15T12:00:00Z",
+        "deleted_at": null,
+        "type": "ACCOUNT_TYPE_CRYPTO",
+        "ready": true,
+        "hold": {"value": "0", "currency": "BTC"},
+        "retail_portfolio_id": null
+    })
+}
+
+const TEST_EC_KEY: &str = "-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIFRQqrwlq7sCUJ56eM3bLnEQxtWNkOr9lA6oaQ/0sKfLoAoGCCqGSM49
+AwEHoUQDQgAEat2hFxJwUbhH4oZp9z5rj7J6nU7FYt6pfE6Ei3gvMWAZIqJ8TdME
+S5IRIotaS4KLpQhofOyNZ7i7rcCAipIZrw==
+-----END EC PRIVATE KEY-----";
+
+fn mock_client(uri: &str) -> RestClient {
+    RestClient::builder()
+        .credentials(Credentials::new("test-key", TEST_EC_KEY).unwrap())
+        .base_url(uri)
+        .build()
+        .unwrap()
+}
+
+#[tokio::test]
+async fn test_list_all_accounts_follows_cursors() {
+    use wiremock::matchers::query_param;
+
+    let mock_server = MockServer::start().await;
+
+    // First page has a cursor to the second page.
+    Mock::given(method("GET"))
+        .and(path("/api/v3/brokerage/accounts"))
+        .and(query_param("cursor", "page2"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "accounts": [test_account_json("account-2")],
+            "has_next": false,
+            "cursor": "",
+            "size": 1
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/api/v3/brokerage/accounts"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "accounts": [test_account_json("account-1")],
+            "has_next": true,
+            "cursor": "page2",
+            "size": 1
+        })))
+        .mount(&mock_server)
+        .await;
+
+    let client = mock_client(&mock_server.uri());
+    let accounts = client.accounts().list_all().await.unwrap();
+
+    assert_eq!(accounts.len(), 2);
+    assert_eq!(accounts[0].uuid, "account-1");
+    assert_eq!(accounts[1].uuid, "account-2");
+}
+
+#[tokio::test]
+async fn test_multi_asset_collateral_path() {
+    use coinbase_advanced::models::SetMultiAssetCollateralRequest;
+    use wiremock::matchers::body_json;
+
+    let mock_server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/v3/brokerage/intx/multi_asset_collateral"))
+        .and(body_json(serde_json::json!({
+            "portfolio_uuid": "portfolio-1",
+            "multi_asset_collateral_enabled": true
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "multi_asset_collateral_enabled": true
+        })))
+        .expect(1)
+        .mount(&mock_server)
+        .await;
+
+    let client = mock_client(&mock_server.uri());
+    let response = client
+        .perpetuals()
+        .set_multi_asset_collateral("portfolio-1", SetMultiAssetCollateralRequest::new(true))
+        .await
+        .unwrap();
+
+    assert!(response.multi_asset_collateral_enabled);
+}

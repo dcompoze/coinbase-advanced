@@ -1,11 +1,72 @@
 use ring::rand::SystemRandom;
-use ring::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, EcdsaKeyPair};
+use ring::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, EcdsaKeyPair, Ed25519KeyPair};
 use serde::Serialize;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::constants::{JWT_EXPIRY_SECONDS, JWT_ISSUER};
 use crate::credentials::Credentials;
 use crate::error::{Error, Result};
+
+/// The kind of private key held by a set of credentials.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum KeyKind {
+    /// EC P-256 key in SEC1 PEM format (`BEGIN EC PRIVATE KEY`).
+    EcdsaSec1,
+    /// EC P-256 key in PKCS#8 PEM format (`BEGIN PRIVATE KEY`).
+    EcdsaPkcs8,
+    /// Ed25519 key in PKCS#8 PEM format (`BEGIN PRIVATE KEY`).
+    Ed25519Pkcs8,
+    /// Ed25519 key as raw base64 (32-byte seed or 64-byte seed plus public key).
+    Ed25519Raw,
+}
+
+impl KeyKind {
+    /// The JWT `alg` header value for this key kind.
+    fn algorithm(self) -> &'static str {
+        match self {
+            KeyKind::EcdsaSec1 | KeyKind::EcdsaPkcs8 => "ES256",
+            KeyKind::Ed25519Pkcs8 | KeyKind::Ed25519Raw => "EdDSA",
+        }
+    }
+}
+
+/// Detect the kind of private key from its textual representation.
+///
+/// Accepts SEC1 EC PEM, PKCS#8 PEM (EC or Ed25519), and raw base64 Ed25519 keys
+/// (32-byte seed or 64-byte seed plus public key).
+pub(crate) fn detect_key_kind(private_key: &str) -> Result<KeyKind> {
+    let key = private_key.trim();
+
+    if key.contains("BEGIN EC PRIVATE KEY") {
+        return Ok(KeyKind::EcdsaSec1);
+    }
+
+    if key.contains("BEGIN PRIVATE KEY") {
+        let der = pem_body(
+            key,
+            "-----BEGIN PRIVATE KEY-----",
+            "-----END PRIVATE KEY-----",
+        )?;
+        // Ed25519 OID 1.3.101.112 encoded as 06 03 2B 65 70.
+        const ED25519_OID: [u8; 5] = [0x06, 0x03, 0x2b, 0x65, 0x70];
+        if der.windows(ED25519_OID.len()).any(|w| w == ED25519_OID) {
+            return Ok(KeyKind::Ed25519Pkcs8);
+        }
+        return Ok(KeyKind::EcdsaPkcs8);
+    }
+
+    // No PEM markers, try raw base64 Ed25519.
+    let compact: String = key.chars().filter(|c| !c.is_whitespace()).collect();
+    let bytes = base64_decode(&compact)
+        .map_err(|_| Error::config("Private key must be PEM or base64 Ed25519"))?;
+    match bytes.len() {
+        32 | 64 => Ok(KeyKind::Ed25519Raw),
+        n => Err(Error::config(format!(
+            "Unsupported raw key length {} (expected 32 or 64 bytes)",
+            n
+        ))),
+    }
+}
 
 /// JWT header for Coinbase API authentication.
 #[derive(Debug, Serialize)]
@@ -27,61 +88,34 @@ struct JwtClaims<'a> {
     uri: Option<String>,
 }
 
-/// Generate a JWT for authenticating with the Coinbase API.
+/// Generate a JWT with an explicit host in the `uri` claim.
 ///
-/// # Arguments
-/// * `credentials` - The API credentials
-/// * `method` - The HTTP method (GET, POST, etc.)
-/// * `path` - The request path (e.g., "/api/v3/brokerage/accounts")
-///
-/// # Returns
-/// A signed JWT string suitable for the Authorization header.
-pub fn generate_jwt(credentials: &Credentials, method: &str, path: &str) -> Result<String> {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|e| Error::jwt(format!("Failed to get current time: {}", e)))?
-        .as_secs();
-
-    // Generate random nonce.
-    let nonce = generate_nonce()?;
-
-    // Build header.
-    let header = JwtHeader {
-        alg: "ES256",
-        kid: credentials.api_key(),
-        nonce,
-        typ: "JWT",
-    };
-
-    // Build URI claim: "<METHOD> api.coinbase.com<path>"
-    let uri = format!("{} api.coinbase.com{}", method.to_uppercase(), path);
-
-    // Build claims.
-    let claims = JwtClaims {
-        iss: JWT_ISSUER,
-        sub: credentials.api_key(),
-        nbf: now,
-        exp: now + JWT_EXPIRY_SECONDS,
-        uri: Some(uri),
-    };
-
-    // Encode and sign.
-    sign_jwt(&header, &claims, credentials)
+/// The host must match the host actually being called (production or sandbox).
+pub(crate) fn generate_jwt_with_host(
+    credentials: &Credentials,
+    method: &str,
+    host: &str,
+    path: &str,
+) -> Result<String> {
+    let uri = format!("{} {}{}", method.to_uppercase(), host, path);
+    generate_jwt_internal(credentials, Some(uri))
 }
 
 /// Generate a JWT for WebSocket authentication (no URI claim).
 pub(crate) fn generate_ws_jwt(credentials: &Credentials) -> Result<String> {
+    generate_jwt_internal(credentials, None)
+}
+
+fn generate_jwt_internal(credentials: &Credentials, uri: Option<String>) -> Result<String> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| Error::jwt(format!("Failed to get current time: {}", e)))?
         .as_secs();
 
-    let nonce = generate_nonce()?;
-
     let header = JwtHeader {
-        alg: "ES256",
+        alg: credentials.key_kind().algorithm(),
         kid: credentials.api_key(),
-        nonce,
+        nonce: generate_nonce()?,
         typ: "JWT",
     };
 
@@ -90,7 +124,7 @@ pub(crate) fn generate_ws_jwt(credentials: &Credentials) -> Result<String> {
         sub: credentials.api_key(),
         nbf: now,
         exp: now + JWT_EXPIRY_SECONDS,
-        uri: None,
+        uri,
     };
 
     sign_jwt(&header, &claims, credentials)
@@ -105,13 +139,12 @@ fn generate_nonce() -> Result<String> {
     Ok(hex::encode(nonce_bytes))
 }
 
-/// Sign the JWT with ES256.
+/// Sign the JWT with the algorithm matching the credential key kind.
 fn sign_jwt<H: Serialize, C: Serialize>(
     header: &H,
     claims: &C,
     credentials: &Credentials,
 ) -> Result<String> {
-    // Encode header and claims.
     let header_b64 = base64_url_encode(
         &serde_json::to_vec(header)
             .map_err(|e| Error::jwt(format!("Failed to encode header: {}", e)))?,
@@ -121,11 +154,18 @@ fn sign_jwt<H: Serialize, C: Serialize>(
             .map_err(|e| Error::jwt(format!("Failed to encode claims: {}", e)))?,
     );
 
-    // Create signing input.
     let signing_input = format!("{}.{}", header_b64, claims_b64);
 
-    // Parse the private key and sign.
-    let signature = sign_es256(signing_input.as_bytes(), credentials.private_key())?;
+    let signature = match credentials.key_kind() {
+        KeyKind::EcdsaSec1 | KeyKind::EcdsaPkcs8 => {
+            sign_es256(signing_input.as_bytes(), credentials.private_key())?
+        }
+        KeyKind::Ed25519Pkcs8 | KeyKind::Ed25519Raw => sign_ed25519(
+            signing_input.as_bytes(),
+            credentials.private_key(),
+            credentials.key_kind(),
+        )?,
+    };
     let signature_b64 = base64_url_encode(&signature);
 
     Ok(format!("{}.{}", signing_input, signature_b64))
@@ -149,28 +189,42 @@ fn sign_es256(data: &[u8], pem_key: &str) -> Result<Vec<u8>> {
     Ok(signature.as_ref().to_vec())
 }
 
-/// Parse a PEM-encoded EC private key to PKCS#8 DER format.
-fn parse_ec_private_key_pem(pem: &str) -> Result<Vec<u8>> {
-    // Find the base64 content between the PEM headers.
-    let pem = pem.trim();
-
-    // Handle both "EC PRIVATE KEY" (SEC1) and "PRIVATE KEY" (PKCS#8) formats.
-    let (start_marker, end_marker, is_sec1) = if pem.contains("BEGIN EC PRIVATE KEY") {
-        (
-            "-----BEGIN EC PRIVATE KEY-----",
-            "-----END EC PRIVATE KEY-----",
-            true,
-        )
-    } else if pem.contains("BEGIN PRIVATE KEY") {
-        (
-            "-----BEGIN PRIVATE KEY-----",
-            "-----END PRIVATE KEY-----",
-            false,
-        )
-    } else {
-        return Err(Error::jwt("Invalid PEM format: missing BEGIN marker"));
+/// Sign data with Ed25519 using a PKCS#8 PEM or raw base64 key.
+fn sign_ed25519(data: &[u8], key: &str, kind: KeyKind) -> Result<Vec<u8>> {
+    let key_pair = match kind {
+        KeyKind::Ed25519Pkcs8 => {
+            let der = pem_body(
+                key.trim(),
+                "-----BEGIN PRIVATE KEY-----",
+                "-----END PRIVATE KEY-----",
+            )?;
+            Ed25519KeyPair::from_pkcs8_maybe_unchecked(&der)
+                .map_err(|e| Error::jwt(format!("Failed to parse Ed25519 key: {}", e)))?
+        }
+        KeyKind::Ed25519Raw => {
+            let compact: String = key.chars().filter(|c| !c.is_whitespace()).collect();
+            let bytes = base64_decode(&compact)?;
+            match bytes.len() {
+                32 => Ed25519KeyPair::from_seed_unchecked(&bytes)
+                    .map_err(|e| Error::jwt(format!("Failed to parse Ed25519 seed: {}", e)))?,
+                64 => Ed25519KeyPair::from_seed_and_public_key(&bytes[..32], &bytes[32..])
+                    .map_err(|e| Error::jwt(format!("Failed to parse Ed25519 key: {}", e)))?,
+                n => {
+                    return Err(Error::jwt(format!(
+                        "Unsupported raw Ed25519 key length {}",
+                        n
+                    )));
+                }
+            }
+        }
+        _ => return Err(Error::jwt("Not an Ed25519 key")),
     };
 
+    Ok(key_pair.sign(data).as_ref().to_vec())
+}
+
+/// Extract and decode the base64 body between PEM markers.
+fn pem_body(pem: &str, start_marker: &str, end_marker: &str) -> Result<Vec<u8>> {
     let start = pem
         .find(start_marker)
         .ok_or_else(|| Error::jwt("Invalid PEM format: missing BEGIN marker"))?
@@ -184,14 +238,31 @@ fn parse_ec_private_key_pem(pem: &str) -> Result<Vec<u8>> {
         .filter(|c| !c.is_whitespace())
         .collect();
 
-    let der = base64_decode(&b64_content)?;
+    base64_decode(&b64_content)
+}
 
-    if is_sec1 {
+/// Parse a PEM-encoded EC private key to PKCS#8 DER format.
+fn parse_ec_private_key_pem(pem: &str) -> Result<Vec<u8>> {
+    let pem = pem.trim();
+
+    // Handle both "EC PRIVATE KEY" (SEC1) and "PRIVATE KEY" (PKCS#8) formats.
+    if pem.contains("BEGIN EC PRIVATE KEY") {
+        let der = pem_body(
+            pem,
+            "-----BEGIN EC PRIVATE KEY-----",
+            "-----END EC PRIVATE KEY-----",
+        )?;
         // Convert SEC1 to PKCS#8 format.
         convert_sec1_to_pkcs8(&der)
-    } else {
+    } else if pem.contains("BEGIN PRIVATE KEY") {
         // Already in PKCS#8 format.
-        Ok(der)
+        pem_body(
+            pem,
+            "-----BEGIN PRIVATE KEY-----",
+            "-----END PRIVATE KEY-----",
+        )
+    } else {
+        Err(Error::jwt("Invalid PEM format: missing BEGIN marker"))
     }
 }
 
@@ -290,7 +361,7 @@ fn base64_url_encode(data: &[u8]) -> String {
 }
 
 /// Standard Base64 decoding.
-fn base64_decode(input: &str) -> Result<Vec<u8>> {
+pub(crate) fn base64_decode(input: &str) -> Result<Vec<u8>> {
     let alphabet = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut lookup = [255u8; 256];
     for (i, &c) in alphabet.iter().enumerate() {
@@ -349,13 +420,6 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_ws_jwt_compiles() {
-        // Just verify the function exists and is callable
-        // Actual JWT generation requires valid credentials
-        let _ = generate_ws_jwt;
-    }
-
-    #[test]
     fn test_base64_decode() {
         let decoded = base64_decode("aGVsbG8").unwrap();
         assert_eq!(decoded, b"hello");
@@ -365,5 +429,89 @@ mod tests {
     fn test_generate_nonce() {
         let nonce = generate_nonce().unwrap();
         assert_eq!(nonce.len(), 32); // 16 bytes = 32 hex chars
+    }
+
+    #[test]
+    fn test_detect_sec1_key() {
+        let pem = "-----BEGIN EC PRIVATE KEY-----\nAAAA\n-----END EC PRIVATE KEY-----";
+        assert_eq!(detect_key_kind(pem).unwrap(), KeyKind::EcdsaSec1);
+    }
+
+    #[test]
+    fn test_detect_raw_ed25519_key() {
+        // 32 byte seed as base64.
+        let raw32 = base64_url_encode(&[7u8; 32]);
+        assert_eq!(detect_key_kind(&raw32).unwrap(), KeyKind::Ed25519Raw);
+        // 64 byte seed plus public key as base64.
+        let raw64 = base64_url_encode(&[7u8; 64]);
+        assert_eq!(detect_key_kind(&raw64).unwrap(), KeyKind::Ed25519Raw);
+    }
+
+    #[test]
+    fn test_detect_invalid_key() {
+        assert!(detect_key_kind("not a key !!!").is_err());
+    }
+
+    #[test]
+    fn test_key_kind_algorithm() {
+        assert_eq!(KeyKind::EcdsaSec1.algorithm(), "ES256");
+        assert_eq!(KeyKind::Ed25519Raw.algorithm(), "EdDSA");
+    }
+
+    // Throwaway keys generated for tests only.
+    const TEST_EC_SEC1: &str = "-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIFRQqrwlq7sCUJ56eM3bLnEQxtWNkOr9lA6oaQ/0sKfLoAoGCCqGSM49
+AwEHoUQDQgAEat2hFxJwUbhH4oZp9z5rj7J6nU7FYt6pfE6Ei3gvMWAZIqJ8TdME
+S5IRIotaS4KLpQhofOyNZ7i7rcCAipIZrw==
+-----END EC PRIVATE KEY-----";
+
+    const TEST_EC_PKCS8: &str = "-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgVFCqvCWruwJQnnp4
+zdsucRDG1Y2Q6v2UDqhpD/Swp8uhRANCAARq3aEXEnBRuEfihmn3PmuPsnqdTsVi
+3ql8ToSLeC8xYBkionxN0wRLkhEii1pLgoulCGh87I1nuLutwICKkhmv
+-----END PRIVATE KEY-----";
+
+    const TEST_ED25519_PKCS8: &str = "-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIO3AE3FBIOkUlxJkqy4Ou+5/gSU6rZEJHXhsgAAkKQaC
+-----END PRIVATE KEY-----";
+
+    fn jwt_header_alg(jwt: &str) -> String {
+        let header_b64 = jwt.split('.').next().unwrap();
+        let header: serde_json::Value =
+            serde_json::from_slice(&base64_decode(header_b64).unwrap()).unwrap();
+        header["alg"].as_str().unwrap().to_string()
+    }
+
+    #[test]
+    fn test_sign_es256_sec1_key() {
+        let creds = Credentials::new("test-key", TEST_EC_SEC1).unwrap();
+        let jwt = generate_jwt_with_host(&creds, "GET", "api.coinbase.com", "/x").unwrap();
+        assert_eq!(jwt.split('.').count(), 3);
+        assert_eq!(jwt_header_alg(&jwt), "ES256");
+    }
+
+    #[test]
+    fn test_sign_es256_pkcs8_key() {
+        let creds = Credentials::new("test-key", TEST_EC_PKCS8).unwrap();
+        let jwt = generate_jwt_with_host(&creds, "GET", "api.coinbase.com", "/x").unwrap();
+        assert_eq!(jwt_header_alg(&jwt), "ES256");
+    }
+
+    #[test]
+    fn test_sign_eddsa_pkcs8_key() {
+        let creds = Credentials::new("test-key", TEST_ED25519_PKCS8).unwrap();
+        assert_eq!(creds.key_kind(), KeyKind::Ed25519Pkcs8);
+        let jwt = generate_jwt_with_host(&creds, "GET", "api.coinbase.com", "/x").unwrap();
+        assert_eq!(jwt.split('.').count(), 3);
+        assert_eq!(jwt_header_alg(&jwt), "EdDSA");
+    }
+
+    #[test]
+    fn test_sign_eddsa_raw_key() {
+        let raw = base64_url_encode(&[7u8; 32]);
+        let creds = Credentials::new("test-key", raw).unwrap();
+        assert_eq!(creds.key_kind(), KeyKind::Ed25519Raw);
+        let jwt = generate_ws_jwt(&creds).unwrap();
+        assert_eq!(jwt_header_alg(&jwt), "EdDSA");
     }
 }

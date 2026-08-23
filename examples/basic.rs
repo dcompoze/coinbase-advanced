@@ -29,8 +29,8 @@ async fn main() -> coinbase_advanced::Result<()> {
 
     // List accounts
     println!("\n--- Accounts ---");
-    let response = client.accounts().list_all().await?;
-    for account in response.accounts.iter().take(5) {
+    let accounts = client.accounts().list_all().await?;
+    for account in accounts.iter().take(5) {
         println!(
             "{}: {} {} (available: {} {})",
             account.name,
@@ -40,8 +40,8 @@ async fn main() -> coinbase_advanced::Result<()> {
             account.available_balance.currency
         );
     }
-    if response.accounts.len() > 5 {
-        println!("... and {} more accounts", response.accounts.len() - 5);
+    if accounts.len() > 5 {
+        println!("... and {} more accounts", accounts.len() - 5);
     }
 
     // Get products

@@ -47,9 +47,21 @@ impl<'a> AccountsApi<'a> {
         self.client.get_with_query("/accounts", &params).await
     }
 
-    /// List all accounts with default parameters.
-    pub async fn list_all(&self) -> Result<ListAccountsResponse> {
-        self.list(ListAccountsParams::default()).await
+    /// List all accounts, following pagination cursors until exhausted.
+    pub async fn list_all(&self) -> Result<Vec<Account>> {
+        let mut accounts = Vec::new();
+        let mut params = ListAccountsParams::default();
+        loop {
+            let response = self.list(params.clone()).await?;
+            accounts.extend(response.accounts);
+            match (response.has_next, response.cursor) {
+                (true, Some(cursor)) if !cursor.is_empty() => {
+                    params = ListAccountsParams::default().cursor(cursor);
+                }
+                _ => break,
+            }
+        }
+        Ok(accounts)
     }
 
     /// Get a single account by UUID.

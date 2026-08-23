@@ -23,7 +23,7 @@ pub enum Error {
     Request(String),
 
     /// API error response from Coinbase
-    #[error("API error: {message}")]
+    #[error("API error ({status}): {message}")]
     Api {
         /// Error message from the API
         message: String,

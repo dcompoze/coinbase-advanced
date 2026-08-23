@@ -166,9 +166,20 @@ impl RateLimiter {
     }
 
     /// Wait until a token is available and acquire it.
+    ///
+    /// The bucket lock is released while sleeping so concurrent
+    /// callers are not serialized behind a single waiter.
     pub async fn acquire(&self) {
-        let mut bucket = self.bucket.lock().await;
-        bucket.wait_and_consume().await;
+        loop {
+            let wait_time = {
+                let mut bucket = self.bucket.lock().await;
+                if bucket.try_consume() {
+                    return;
+                }
+                bucket.time_until_available()
+            };
+            tokio::time::sleep(wait_time).await;
+        }
     }
 
     /// Get the current number of available tokens.

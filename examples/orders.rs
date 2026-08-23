@@ -8,7 +8,7 @@
 //! - COINBASE_API_KEY
 //! - COINBASE_PRIVATE_KEY
 
-use coinbase_advanced::models::ListFillsParams;
+use coinbase_advanced::models::{ListFillsParams, ListOrdersParams};
 use coinbase_advanced::{Credentials, RestClient};
 
 #[tokio::main]
@@ -27,11 +27,11 @@ async fn main() -> coinbase_advanced::Result<()> {
 
     // List existing orders
     println!("\n--- Open Orders ---");
-    let response = client.orders().list_all().await?;
-    if response.orders.is_empty() {
+    let orders = client.orders().list_all(ListOrdersParams::new()).await?;
+    if orders.is_empty() {
         println!("No open orders");
     } else {
-        for order in &response.orders {
+        for order in &orders {
             println!(
                 "{}: {} {} @ {:?} ({:?})",
                 order.order_id,

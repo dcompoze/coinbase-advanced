@@ -29,12 +29,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Fetching accounts...\n");
 
     // List all accounts
-    let response = client.accounts().list_all().await?;
+    let accounts = client.accounts().list_all().await?;
 
-    println!("Found {} accounts:", response.accounts.len());
+    println!("Found {} accounts:", accounts.len());
     println!("{:-<60}", "");
 
-    for account in &response.accounts {
+    for account in &accounts {
         if account.available_balance.value != "0" || account.hold.value != "0" {
             println!(
                 "{:8} | Available: {:>15} | Hold: {:>15}",
@@ -44,7 +44,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("{:-<60}", "");
-    println!("Has more pages: {}", response.has_next);
 
     Ok(())
 }

@@ -182,15 +182,28 @@ impl AllocatePortfolioRequest {
 /// Request to set multi-asset collateral.
 #[derive(Debug, Clone, Serialize)]
 pub struct SetMultiAssetCollateralRequest {
+    /// The portfolio UUID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub portfolio_uuid: Option<String>,
     /// Whether multi-asset collateral is enabled.
     pub multi_asset_collateral_enabled: bool,
 }
 
 impl SetMultiAssetCollateralRequest {
     /// Create a new set multi-asset collateral request.
+    /// The portfolio UUID is set by `PerpetualsApi::set_multi_asset_collateral`.
     pub fn new(enabled: bool) -> Self {
         Self {
+            portfolio_uuid: None,
             multi_asset_collateral_enabled: enabled,
         }
     }
+}
+
+/// Response from setting multi-asset collateral.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SetMultiAssetCollateralResponse {
+    /// Whether multi-asset collateral is enabled after the update.
+    #[serde(default)]
+    pub multi_asset_collateral_enabled: bool,
 }

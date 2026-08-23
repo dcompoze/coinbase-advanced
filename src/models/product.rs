@@ -263,6 +263,22 @@ pub enum Granularity {
     OneDay,
 }
 
+impl Granularity {
+    /// Duration of one candle in seconds.
+    pub fn seconds(self) -> u64 {
+        match self {
+            Granularity::OneMinute => 60,
+            Granularity::FiveMinute => 300,
+            Granularity::FifteenMinute => 900,
+            Granularity::ThirtyMinute => 1800,
+            Granularity::OneHour => 3600,
+            Granularity::TwoHour => 7200,
+            Granularity::SixHour => 21600,
+            Granularity::OneDay => 86400,
+        }
+    }
+}
+
 /// A candlestick (OHLCV) data point.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Candle {

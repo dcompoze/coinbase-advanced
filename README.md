@@ -3,9 +3,10 @@
 A Rust async client library for the [Coinbase Advanced Trade API](https://docs.cdp.coinbase.com/advanced-trade-api/docs/welcome).
 
 - Complete REST API coverage for Coinbase Advanced Trade
-- WebSocket support for real-time market data
-- JWT (ES256) authentication
-- Optional client-side rate limiting
+- WebSocket support for real-time market data with auto-reconnect
+- JWT authentication with ECDSA (ES256) and Ed25519 (EdDSA) keys
+- Optional client-side rate limiting and retries with exponential backoff
+- Automatic cursor pagination helpers (`list_all`)
 - Async/await with Tokio/Reqwest
 
 ## Library
@@ -13,6 +14,7 @@ A Rust async client library for the [Coinbase Advanced Trade API](https://docs.c
 Authentication:
 
 Obtain API credentials from the [Coinbase Developer Platform](https://portal.cdp.coinbase.com/).
+Both ECDSA (EC P-256 PEM) and Ed25519 (PKCS#8 PEM or raw base64) keys are supported.
 
 ```rust
 use coinbase_advanced::{Credentials, RestClient};
@@ -97,12 +99,29 @@ async fn main() -> coinbase_advanced::Result<()> {
 Configuration:
 
 ```rust
+use coinbase_advanced::rate_limit::RateLimitConfig;
+
 let client = RestClient::builder()
     .credentials(Credentials::from_env()?)
     .sandbox(true)
     .rate_limiting(true)
+    .retry_config(RateLimitConfig::new().with_max_retries(3))
     .build()?;
 ```
+
+WebSocket reliability options:
+
+```rust
+let client = WebSocketClient::builder()
+    .credentials(Credentials::from_env()?)
+    .auto_reconnect(true)
+    .validate_sequence(true)
+    .build()?;
+```
+
+Note: On 2026-09-09 Coinbase moves international derivatives (INTX) to a
+Deribit-powered gateway with a JSON-RPC API. The `/intx` endpoints in this
+library follow the current Advanced Trade REST API.
 
 ## API coverage
 

@@ -3,7 +3,7 @@
 use serde::Deserialize;
 
 use crate::client::RestClient;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::models::{
     Candle, GetCandlesParams, GetCandlesResponse, GetMarketTradesParams, GetMarketTradesResponse,
     GetProductBookParams, GetProductBookResponse, ListProductsParams, ListProductsResponse,
@@ -96,6 +96,38 @@ impl<'a> PublicApi<'a> {
             .public_get_with_query(&endpoint, &params)
             .await?;
         Ok(response.candles)
+    }
+
+    /// Get candles for a range longer than the per-request limit.
+    ///
+    /// Splits the range into windows of at most 350 candles, fetches each
+    /// window, and returns the combined result sorted by start time.
+    pub async fn get_candles_ext(&self, params: GetCandlesParams) -> Result<Vec<Candle>> {
+        let start: u64 = params
+            .start
+            .parse()
+            .map_err(|_| Error::request("start must be a unix timestamp"))?;
+        let end: u64 = params
+            .end
+            .parse()
+            .map_err(|_| Error::request("end must be a unix timestamp"))?;
+
+        let mut candles = Vec::new();
+        for (window_start, window_end) in
+            super::candle_windows(start, end, params.granularity.seconds())
+        {
+            let window_params = GetCandlesParams::new(
+                &params.product_id,
+                window_start.to_string(),
+                window_end.to_string(),
+                params.granularity,
+            );
+            candles.extend(self.get_candles(window_params).await?);
+        }
+
+        candles.sort_by_key(|c| c.start.parse::<u64>().unwrap_or(0));
+        candles.dedup_by(|a, b| a.start == b.start);
+        Ok(candles)
     }
 
     /// Get recent trades for a product.

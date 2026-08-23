@@ -89,6 +89,39 @@ pub struct LimitFok {
     pub limit_price: String,
 }
 
+/// Limit IOC (smart order routing) order configuration.
+#[derive(Debug, Clone, Serialize)]
+pub struct SorLimitIoc {
+    /// Size in base currency.
+    pub base_size: String,
+    /// Limit price.
+    pub limit_price: String,
+}
+
+/// Trigger bracket GTC order configuration.
+#[derive(Debug, Clone, Serialize)]
+pub struct TriggerBracketGtc {
+    /// Size in base currency.
+    pub base_size: String,
+    /// Limit price.
+    pub limit_price: String,
+    /// Price that triggers the exit order.
+    pub stop_trigger_price: String,
+}
+
+/// Trigger bracket GTD order configuration.
+#[derive(Debug, Clone, Serialize)]
+pub struct TriggerBracketGtd {
+    /// Size in base currency.
+    pub base_size: String,
+    /// Limit price.
+    pub limit_price: String,
+    /// Price that triggers the exit order.
+    pub stop_trigger_price: String,
+    /// Expiration time (ISO 8601).
+    pub end_time: String,
+}
+
 /// Stop-limit GTC order configuration.
 #[derive(Debug, Clone, Serialize)]
 pub struct StopLimitGtc {
@@ -150,6 +183,21 @@ pub enum OrderConfiguration {
     StopLimitGtd {
         /// Stop-limit GTD configuration.
         stop_limit_stop_limit_gtd: StopLimitGtd,
+    },
+    /// Limit order (immediate-or-cancel).
+    SorLimitIoc {
+        /// Limit IOC configuration.
+        sor_limit_ioc: SorLimitIoc,
+    },
+    /// Trigger bracket order (good-til-cancelled).
+    TriggerBracketGtc {
+        /// Trigger bracket GTC configuration.
+        trigger_bracket_gtc: TriggerBracketGtc,
+    },
+    /// Trigger bracket order (good-til-date).
+    TriggerBracketGtd {
+        /// Trigger bracket GTD configuration.
+        trigger_bracket_gtd: TriggerBracketGtd,
     },
 }
 
@@ -258,6 +306,48 @@ impl OrderConfiguration {
                 stop_price: stop_price.into(),
                 end_time: end_time.into(),
                 stop_direction,
+            },
+        }
+    }
+
+    /// Create a limit IOC order.
+    pub fn limit_ioc(base_size: impl Into<String>, limit_price: impl Into<String>) -> Self {
+        Self::SorLimitIoc {
+            sor_limit_ioc: SorLimitIoc {
+                base_size: base_size.into(),
+                limit_price: limit_price.into(),
+            },
+        }
+    }
+
+    /// Create a trigger bracket GTC order.
+    pub fn trigger_bracket_gtc(
+        base_size: impl Into<String>,
+        limit_price: impl Into<String>,
+        stop_trigger_price: impl Into<String>,
+    ) -> Self {
+        Self::TriggerBracketGtc {
+            trigger_bracket_gtc: TriggerBracketGtc {
+                base_size: base_size.into(),
+                limit_price: limit_price.into(),
+                stop_trigger_price: stop_trigger_price.into(),
+            },
+        }
+    }
+
+    /// Create a trigger bracket GTD order.
+    pub fn trigger_bracket_gtd(
+        base_size: impl Into<String>,
+        limit_price: impl Into<String>,
+        stop_trigger_price: impl Into<String>,
+        end_time: impl Into<String>,
+    ) -> Self {
+        Self::TriggerBracketGtd {
+            trigger_bracket_gtd: TriggerBracketGtd {
+                base_size: base_size.into(),
+                limit_price: limit_price.into(),
+                stop_trigger_price: stop_trigger_price.into(),
+                end_time: end_time.into(),
             },
         }
     }
@@ -419,6 +509,90 @@ pub struct EditOrderResponse {
     pub success: bool,
     /// Errors (if any).
     pub errors: Option<Vec<serde_json::Value>>,
+}
+
+/// Response from previewing an order.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PreviewOrderResponse {
+    /// Total order value.
+    #[serde(default)]
+    pub order_total: String,
+    /// Total commission.
+    #[serde(default)]
+    pub commission_total: String,
+    /// Preview errors.
+    #[serde(default)]
+    pub errs: Vec<String>,
+    /// Preview warnings.
+    #[serde(default)]
+    pub warning: Vec<String>,
+    /// Quote currency size.
+    #[serde(default)]
+    pub quote_size: String,
+    /// Base currency size.
+    #[serde(default)]
+    pub base_size: String,
+    /// Best bid at preview time.
+    #[serde(default)]
+    pub best_bid: String,
+    /// Best ask at preview time.
+    #[serde(default)]
+    pub best_ask: String,
+    /// Whether the order uses the maximum available balance.
+    #[serde(default)]
+    pub is_max: bool,
+    /// Total margin for the order.
+    pub order_margin_total: Option<String>,
+    /// Leverage.
+    pub leverage: Option<String>,
+    /// Long leverage.
+    pub long_leverage: Option<String>,
+    /// Short leverage.
+    pub short_leverage: Option<String>,
+    /// Expected slippage.
+    pub slippage: Option<String>,
+    /// Preview ID.
+    pub preview_id: Option<String>,
+    /// Current liquidity.
+    pub current_liquidity: Option<String>,
+    /// Average filled price.
+    pub average_filled_price: Option<String>,
+}
+
+/// Response from previewing an order edit.
+#[derive(Debug, Clone, Deserialize)]
+pub struct EditOrderPreviewResponse {
+    /// Edit errors (if any).
+    pub errors: Option<Vec<serde_json::Value>>,
+    /// Expected slippage.
+    #[serde(default)]
+    pub slippage: String,
+    /// Total order value.
+    #[serde(default)]
+    pub order_total: String,
+    /// Total commission.
+    #[serde(default)]
+    pub commission_total: String,
+    /// Quote currency size.
+    #[serde(default)]
+    pub quote_size: String,
+    /// Base currency size.
+    #[serde(default)]
+    pub base_size: String,
+    /// Best bid at preview time.
+    #[serde(default)]
+    pub best_bid: String,
+    /// Best ask at preview time.
+    #[serde(default)]
+    pub best_ask: String,
+    /// Average filled price.
+    pub average_filled_price: Option<String>,
+    /// Leverage.
+    pub leverage: Option<String>,
+    /// Long leverage.
+    pub long_leverage: Option<String>,
+    /// Short leverage.
+    pub short_leverage: Option<String>,
 }
 
 /// An order.

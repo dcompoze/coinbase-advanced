@@ -35,7 +35,8 @@
 //! You'll need:
 //!
 //! - An API key (in the format `organizations/{org_id}/apiKeys/{key_id}`)
-//! - An EC private key in PEM format
+//! - A private key: EC P-256 in PEM format (ES256) or Ed25519 as PKCS#8 PEM
+//!   or raw base64 (EdDSA)
 //!
 //! These can be obtained from the Coinbase Developer Platform.
 //!

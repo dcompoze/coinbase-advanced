@@ -2,14 +2,17 @@ use secrecy::{ExposeSecret, SecretString};
 use std::env;
 
 use crate::error::{Error, Result};
+use crate::jwt::{KeyKind, detect_key_kind};
 
 /// Credentials for authenticating with the Coinbase API.
 #[derive(Clone)]
 pub struct Credentials {
     /// The API key (e.g., "organizations/{org_id}/apiKeys/{key_id}")
     api_key: String,
-    /// The private key in PEM format (EC P-256)
+    /// The private key (EC P-256 PEM, Ed25519 PKCS#8 PEM, or raw base64 Ed25519)
     private_key: SecretString,
+    /// The detected key kind
+    key_kind: KeyKind,
 }
 
 impl std::fmt::Debug for Credentials {
@@ -26,7 +29,8 @@ impl Credentials {
     ///
     /// # Arguments
     /// * `api_key` - The CDP API key identifier
-    /// * `private_key` - The EC private key in PEM format
+    /// * `private_key` - An EC P-256 key in PEM format (SEC1 or PKCS#8),
+    ///   an Ed25519 key in PKCS#8 PEM format, or a raw base64 Ed25519 key
     ///
     /// # Example
     /// ```no_run
@@ -48,15 +52,13 @@ impl Credentials {
         if private_key.is_empty() {
             return Err(Error::config("Private key cannot be empty"));
         }
-        if !private_key.contains("BEGIN EC PRIVATE KEY") {
-            return Err(Error::config(
-                "Private key must be in PEM format (EC PRIVATE KEY)",
-            ));
-        }
+
+        let key_kind = detect_key_kind(&private_key)?;
 
         Ok(Self {
             api_key,
             private_key: SecretString::from(private_key),
+            key_kind,
         })
     }
 
@@ -64,7 +66,7 @@ impl Credentials {
     ///
     /// Reads from:
     /// - `COINBASE_API_KEY` - The CDP API key
-    /// - `COINBASE_PRIVATE_KEY` - The EC private key in PEM format
+    /// - `COINBASE_PRIVATE_KEY` - The private key (PEM or raw base64 Ed25519)
     ///
     /// Note: The private key should have literal `\n` characters replaced with actual newlines,
     /// or be stored in a file and read separately.
@@ -89,6 +91,11 @@ impl Credentials {
     /// Get the private key (exposed for JWT signing).
     pub(crate) fn private_key(&self) -> &str {
         self.private_key.expose_secret()
+    }
+
+    /// Get the detected key kind.
+    pub(crate) fn key_kind(&self) -> KeyKind {
+        self.key_kind
     }
 }
 

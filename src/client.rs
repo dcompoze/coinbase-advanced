@@ -1,5 +1,9 @@
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
 use reqwest::{Client, Method, Response};
+use reqwest_middleware::ClientWithMiddleware;
+use reqwest_retry::RetryTransientMiddleware;
+use reqwest_retry::policies::ExponentialBackoff;
+use reqwest_tracing::TracingMiddleware;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::time::Duration;
@@ -10,8 +14,8 @@ use crate::constants::{
 };
 use crate::credentials::Credentials;
 use crate::error::{Error, Result};
-use crate::jwt::generate_jwt;
-use crate::rate_limit::RateLimiter;
+use crate::jwt::generate_jwt_with_host;
+use crate::rate_limit::{RateLimitConfig, RateLimitInfo, RateLimiter};
 use crate::rest::{
     AccountsApi, ConvertApi, DataApi, FeesApi, FuturesApi, OrdersApi, PaymentMethodsApi,
     PerpetualsApi, PortfoliosApi, ProductsApi, PublicApi,
@@ -24,6 +28,8 @@ pub struct RestClientBuilder {
     sandbox: bool,
     timeout: Duration,
     rate_limiting: bool,
+    retry_config: Option<RateLimitConfig>,
+    base_url: Option<String>,
 }
 
 impl Default for RestClientBuilder {
@@ -40,6 +46,8 @@ impl RestClientBuilder {
             sandbox: false,
             timeout: Duration::from_secs(DEFAULT_TIMEOUT_SECONDS),
             rate_limiting: false,
+            retry_config: None,
+            base_url: None,
         }
     }
 
@@ -76,30 +84,66 @@ impl RestClientBuilder {
         self
     }
 
+    /// Override the API base URL.
+    ///
+    /// Takes precedence over `sandbox`. Useful for testing against a mock server.
+    pub fn base_url(mut self, base_url: impl Into<String>) -> Self {
+        self.base_url = Some(base_url.into());
+        self
+    }
+
+    /// Enable automatic retries with exponential backoff.
+    ///
+    /// Retries transient failures (429 and 5xx responses, connection errors)
+    /// according to the given configuration.
+    pub fn retry_config(mut self, config: RateLimitConfig) -> Self {
+        self.retry_config = Some(config);
+        self
+    }
+
     /// Build the REST client.
     pub fn build(self) -> Result<RestClient> {
-        let base_url = if self.sandbox {
-            API_SANDBOX_BASE_URL
-        } else {
-            API_BASE_URL
-        };
+        let base_url = self.base_url.clone().unwrap_or_else(|| {
+            if self.sandbox {
+                API_SANDBOX_BASE_URL.to_string()
+            } else {
+                API_BASE_URL.to_string()
+            }
+        });
 
-        let http_client = Client::builder()
+        let reqwest_client = Client::builder()
             .timeout(self.timeout)
             .build()
             .map_err(|e| Error::config(format!("Failed to create HTTP client: {}", e)))?;
 
-        let rate_limiter = if self.rate_limiting {
-            Some(RateLimiter::for_private_rest())
+        let mut client_builder = reqwest_middleware::ClientBuilder::new(reqwest_client)
+            .with(TracingMiddleware::default());
+
+        if let Some(ref config) = self.retry_config
+            && config.enabled
+            && config.max_retries > 0
+        {
+            let policy = ExponentialBackoff::builder()
+                .retry_bounds(config.initial_backoff, config.max_backoff)
+                .build_with_max_retries(config.max_retries);
+            client_builder = client_builder.with(RetryTransientMiddleware::new_with_policy(policy));
+        }
+
+        let (private_limiter, public_limiter) = if self.rate_limiting {
+            (
+                Some(RateLimiter::for_private_rest()),
+                Some(RateLimiter::for_public_rest()),
+            )
         } else {
-            None
+            (None, None)
         };
 
         Ok(RestClient {
-            http_client,
-            base_url: base_url.to_string(),
+            http_client: client_builder.build(),
+            base_url,
             credentials: self.credentials,
-            rate_limiter,
+            private_limiter,
+            public_limiter,
         })
     }
 }
@@ -107,10 +151,11 @@ impl RestClientBuilder {
 /// REST client for the Coinbase Advanced Trade API.
 #[derive(Clone)]
 pub struct RestClient {
-    http_client: Client,
+    http_client: ClientWithMiddleware,
     base_url: String,
     credentials: Option<Credentials>,
-    rate_limiter: Option<RateLimiter>,
+    private_limiter: Option<RateLimiter>,
+    public_limiter: Option<RateLimiter>,
 }
 
 impl RestClient {
@@ -193,7 +238,7 @@ impl RestClient {
     ///     .credentials(Credentials::from_env()?)
     ///     .build()?;
     ///
-    /// let orders = client.orders().list_all().await?;
+    /// let orders = client.orders().list_all(ListOrdersParams::new()).await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -364,7 +409,12 @@ impl RestClient {
         headers.insert(USER_AGENT, HeaderValue::from_static(UA));
 
         if let Some(ref credentials) = self.credentials {
-            let jwt = generate_jwt(credentials, method, path)?;
+            // Sign for the host actually being called so sandbox JWTs are valid.
+            let host = self
+                .base_url
+                .trim_start_matches("https://")
+                .trim_start_matches("http://");
+            let jwt = generate_jwt_with_host(credentials, method, host, path)?;
             let auth_value = format!("Bearer {}", jwt);
             headers.insert(
                 AUTHORIZATION,
@@ -434,7 +484,7 @@ impl RestClient {
         body: Option<&B>,
     ) -> Result<T> {
         // Apply rate limiting if enabled.
-        if let Some(ref limiter) = self.rate_limiter {
+        if let Some(ref limiter) = self.private_limiter {
             limiter.acquire().await;
         }
 
@@ -464,7 +514,7 @@ impl RestClient {
             request = request.json(b);
         }
 
-        let response = request.send().await.map_err(Error::Http)?;
+        let response = request.send().await.map_err(map_middleware_error)?;
 
         self.handle_response(response).await
     }
@@ -504,8 +554,8 @@ impl RestClient {
         query: Option<&Q>,
         body: Option<&B>,
     ) -> Result<T> {
-        // Apply rate limiting if enabled.
-        if let Some(ref limiter) = self.rate_limiter {
+        // Public endpoints have their own, lower rate limit.
+        if let Some(ref limiter) = self.public_limiter {
             limiter.acquire().await;
         }
 
@@ -530,7 +580,7 @@ impl RestClient {
             request = request.json(b);
         }
 
-        let response = request.send().await.map_err(Error::Http)?;
+        let response = request.send().await.map_err(map_middleware_error)?;
 
         self.handle_response(response).await
     }
@@ -538,6 +588,18 @@ impl RestClient {
     /// Handle the API response.
     async fn handle_response<T: DeserializeOwned>(&self, response: Response) -> Result<T> {
         let status = response.status();
+
+        // Surface rate limit headers for observability.
+        let rate_info = RateLimitInfo::from_headers(response.headers());
+        if rate_info.is_exhausted() {
+            tracing::warn!(
+                limit = ?rate_info.limit,
+                reset = ?rate_info.reset,
+                "API rate limit exhausted"
+            );
+        } else if let Some(remaining) = rate_info.remaining {
+            tracing::trace!(remaining, "API rate limit remaining");
+        }
 
         // Check for rate limiting.
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
@@ -573,6 +635,16 @@ impl RestClient {
         // Parse successful response.
         serde_json::from_str(&body)
             .map_err(|e| Error::parse(format!("Failed to parse response: {}", e), Some(body)))
+    }
+}
+
+/// Map a middleware error to a crate error.
+fn map_middleware_error(error: reqwest_middleware::Error) -> Error {
+    match error {
+        reqwest_middleware::Error::Reqwest(e) => Error::Http(e),
+        reqwest_middleware::Error::Middleware(e) => {
+            Error::request(format!("Middleware error: {}", e))
+        }
     }
 }
 
