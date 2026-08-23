@@ -59,6 +59,8 @@ async fn main() -> coinbase_advanced::Result<()> {
     // Example: Place a limit order (commented out for safety)
     // Uncomment to actually place an order in sandbox
     /*
+    use coinbase_advanced::models::CancelOrdersRequest;
+
     println!("\n--- Placing Limit Order ---");
     let order = client.limit_order_gtc()
         .buy("BTC-USD")
@@ -68,12 +70,13 @@ async fn main() -> coinbase_advanced::Result<()> {
         .send()
         .await?;
 
-    println!("Order placed: {}", order.order_id);
     println!("Success: {}", order.success);
+    let order_id = order.order_id.expect("Order ID missing");
+    println!("Order placed: {}", order_id);
 
     // Cancel the order
     println!("\n--- Cancelling Order ---");
-    let cancelled = client.orders().cancel(&[&order.order_id]).await?;
+    let cancelled = client.orders().cancel(CancelOrdersRequest::single(order_id)).await?;
     for result in &cancelled.results {
         println!("{}: success={}", result.order_id, result.success);
     }

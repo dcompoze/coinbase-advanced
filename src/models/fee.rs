@@ -44,8 +44,10 @@ pub struct GoodsAndServicesTax {
 #[derive(Debug, Clone, Deserialize)]
 pub struct TransactionSummary {
     /// Total volume across assets, denoted in USD.
+    #[serde(default)]
     pub total_volume: f64,
     /// Total fees across assets, denoted in USD.
+    #[serde(default)]
     pub total_fees: f64,
     /// Fee tier information.
     pub fee_tier: FeeTier,
@@ -54,12 +56,16 @@ pub struct TransactionSummary {
     /// Goods and Services Tax (if applicable).
     pub goods_and_services_tax: Option<GoodsAndServicesTax>,
     /// Advanced Trade volume (non-inclusive of Pro) across assets, denoted in USD.
+    #[serde(default)]
     pub advanced_trade_only_volume: f64,
     /// Advanced Trade fees (non-inclusive of Pro) across assets, denoted in USD.
+    #[serde(default)]
     pub advanced_trade_only_fees: f64,
     /// Coinbase Pro volume across assets, denoted in USD.
+    #[serde(default)]
     pub coinbase_pro_volume: f64,
     /// Coinbase Pro fees across assets, denoted in USD.
+    #[serde(default)]
     pub coinbase_pro_fees: f64,
     /// Total balance (optional).
     #[serde(default)]

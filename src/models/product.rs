@@ -8,56 +8,82 @@ pub struct Product {
     /// Product identifier (e.g., "BTC-USD").
     pub product_id: String,
     /// Current price.
+    #[serde(default)]
     pub price: String,
     /// 24-hour price change percentage.
+    #[serde(default)]
     pub price_percentage_change_24h: String,
     /// 24-hour trading volume.
+    #[serde(default)]
     pub volume_24h: String,
     /// 24-hour volume change percentage.
+    #[serde(default)]
     pub volume_percentage_change_24h: String,
     /// Minimum increment for base currency.
+    #[serde(default)]
     pub base_increment: String,
     /// Minimum increment for quote currency.
+    #[serde(default)]
     pub quote_increment: String,
     /// Minimum order size in quote currency.
+    #[serde(default)]
     pub quote_min_size: String,
     /// Maximum order size in quote currency.
+    #[serde(default)]
     pub quote_max_size: String,
     /// Minimum order size in base currency.
+    #[serde(default)]
     pub base_min_size: String,
     /// Maximum order size in base currency.
+    #[serde(default)]
     pub base_max_size: String,
     /// Base currency name.
+    #[serde(default)]
     pub base_name: String,
     /// Quote currency name.
+    #[serde(default)]
     pub quote_name: String,
     /// Whether the product is on the user's watchlist.
+    #[serde(default)]
     pub watched: bool,
     /// Whether trading is disabled.
+    #[serde(default)]
     pub is_disabled: bool,
     /// Whether the product is new.
+    #[serde(default)]
     pub new: bool,
     /// Product status.
+    #[serde(default)]
     pub status: String,
     /// Whether only cancel orders are allowed.
+    #[serde(default)]
     pub cancel_only: bool,
     /// Whether only limit orders are allowed.
+    #[serde(default)]
     pub limit_only: bool,
     /// Whether only post-only orders are allowed.
+    #[serde(default)]
     pub post_only: bool,
     /// Whether trading is disabled.
+    #[serde(default)]
     pub trading_disabled: bool,
     /// Whether the product is in auction mode.
+    #[serde(default)]
     pub auction_mode: bool,
     /// Type of product (SPOT, FUTURE).
+    #[serde(default)]
     pub product_type: Option<String>,
     /// Quote currency ID.
+    #[serde(default)]
     pub quote_currency_id: String,
     /// Base currency ID.
+    #[serde(default)]
     pub base_currency_id: String,
     /// Display symbol for base currency.
+    #[serde(default)]
     pub base_display_symbol: Option<String>,
     /// Display symbol for quote currency.
+    #[serde(default)]
     pub quote_display_symbol: Option<String>,
 }
 
@@ -125,14 +151,6 @@ pub struct ListProductsResponse {
     pub products: Vec<Product>,
     /// Number of products returned.
     pub num_products: Option<u32>,
-}
-
-/// Request parameters for getting product details.
-#[derive(Debug, Clone, Default, Serialize)]
-pub struct GetProductParams {
-    /// Whether to include tradability status.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub get_tradability_status: Option<bool>,
 }
 
 /// An entry in the order book (bid or ask).

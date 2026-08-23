@@ -1,7 +1,7 @@
 //! Products API endpoints.
 
 use crate::client::RestClient;
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::models::{
     Candle, GetBestBidAskParams, GetBestBidAskResponse, GetCandlesParams, GetCandlesResponse,
     GetMarketTradesParams, GetMarketTradesResponse, GetProductBookParams, GetProductBookResponse,
@@ -48,6 +48,9 @@ impl<'a> ProductsApi<'a> {
     }
 
     /// List all products with default parameters.
+    ///
+    /// The products endpoint is not cursor paginated.
+    /// Without a `limit` the API returns every product in one response.
     pub async fn list_all(&self) -> Result<ListProductsResponse> {
         self.list(ListProductsParams::default()).await
     }
@@ -161,31 +164,7 @@ impl<'a> ProductsApi<'a> {
     /// Splits the range into windows of at most 350 candles, fetches each
     /// window, and returns the combined result sorted by start time.
     pub async fn get_candles_ext(&self, params: GetCandlesParams) -> Result<Vec<Candle>> {
-        let start: u64 = params
-            .start
-            .parse()
-            .map_err(|_| Error::request("start must be a unix timestamp"))?;
-        let end: u64 = params
-            .end
-            .parse()
-            .map_err(|_| Error::request("end must be a unix timestamp"))?;
-
-        let mut candles = Vec::new();
-        for (window_start, window_end) in
-            super::candle_windows(start, end, params.granularity.seconds())
-        {
-            let window_params = GetCandlesParams::new(
-                &params.product_id,
-                window_start.to_string(),
-                window_end.to_string(),
-                params.granularity,
-            );
-            candles.extend(self.get_candles(window_params).await?);
-        }
-
-        candles.sort_by_key(|c| c.start.parse::<u64>().unwrap_or(0));
-        candles.dedup_by(|a, b| a.start == b.start);
-        Ok(candles)
+        super::fetch_candles_windowed(params, |window| self.get_candles(window)).await
     }
 
     /// Get recent trades for a product.

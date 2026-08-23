@@ -32,7 +32,7 @@ async fn main() -> coinbase_advanced::Result<()> {
         .await?;
     println!("Subscribed!");
 
-    // Process messages (limit to 10 for demo)
+    // Process messages (limit to 20 for demo)
     println!("\nReceiving messages (press Ctrl+C to stop)...\n");
 
     let mut count = 0;

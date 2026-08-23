@@ -24,13 +24,12 @@ use crate::jwt::generate_ws_jwt;
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 type WsSink = SplitSink<Socket, WsMessage>;
 type WsStream = SplitStream<Socket>;
-type ReconnectFuture =
-    Pin<Box<dyn Future<Output = Result<(Option<WsStream>, Option<WsStream>)>> + Send>>;
+type ReconnectFuture = Pin<Box<dyn Future<Output = Result<(WsStream, Option<WsStream>)>> + Send>>;
 
 /// Subscription message sent to the WebSocket.
 #[derive(Debug, serde::Serialize)]
 struct SubscriptionMessage {
-    r#type: String,
+    r#type: &'static str,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     product_ids: Vec<String>,
     channel: ChannelName,
@@ -45,7 +44,7 @@ struct SubscriptionMessage {
 pub struct WebSocketClientBuilder {
     credentials: Option<Credentials>,
     auto_reconnect: bool,
-    max_retries: u32,
+    max_retries: Option<u32>,
     sandbox: bool,
     validate_sequence: bool,
     public_url: Option<String>,
@@ -70,15 +69,14 @@ impl WebSocketClientBuilder {
     /// and resubscribes to all previously subscribed channels.
     pub fn auto_reconnect(mut self, enable: bool) -> Self {
         self.auto_reconnect = enable;
-        if enable && self.max_retries == 0 {
-            self.max_retries = 10;
-        }
         self
     }
 
-    /// Set maximum number of reconnection attempts.
+    /// Set maximum number of reconnection attempts (default 10).
+    ///
+    /// An explicit `0` disables reconnection attempts.
     pub fn max_retries(mut self, max_retries: u32) -> Self {
-        self.max_retries = max_retries;
+        self.max_retries = Some(max_retries);
         self
     }
 
@@ -121,14 +119,14 @@ impl WebSocketClientBuilder {
             inner: Arc::new(ClientInner {
                 credentials: self.credentials,
                 auto_reconnect: self.auto_reconnect,
-                max_retries: self.max_retries,
+                max_retries: self.max_retries.unwrap_or(10),
                 sandbox: self.sandbox,
                 validate_sequence: self.validate_sequence,
                 public_url: self.public_url,
                 user_url: self.user_url,
                 public_sink: Mutex::new(None),
                 user_sink: Mutex::new(None),
-                subscriptions: Mutex::new(Subscriptions::new()),
+                subscriptions: Mutex::new(Subscriptions::default()),
             }),
         })
     }
@@ -142,10 +140,6 @@ struct Subscriptions {
 }
 
 impl Subscriptions {
-    fn new() -> Self {
-        Self::default()
-    }
-
     fn add(&mut self, channel: &Channel) {
         let name = ChannelName::from(channel);
         let product_ids = channel.product_ids().to_vec();
@@ -209,25 +203,34 @@ impl ClientInner {
     }
 
     /// Connect both endpoints, install the sinks, and return the read halves.
+    ///
+    /// The sinks are installed only after every required connection succeeds,
+    /// so a failed connect cannot leave a half-installed pair behind.
     async fn connect_streams(&self) -> Result<(WsStream, Option<WsStream>)> {
         let (public_socket, _) = connect_async(self.public_url()).await.map_err(|e| {
             Error::websocket(format!("Failed to connect to public WebSocket: {}", e))
         })?;
 
-        let (public_sink, public_stream) = public_socket.split();
-        *self.public_sink.lock().await = Some(public_sink);
-
         // If we have credentials, also connect to the user endpoint.
-        let user_stream = if self.credentials.is_some() {
+        let user_socket = if self.credentials.is_some() {
             let (user_socket, _) = connect_async(self.user_url()).await.map_err(|e| {
                 Error::websocket(format!("Failed to connect to user WebSocket: {}", e))
             })?;
-
-            let (user_sink, user_stream) = user_socket.split();
-            *self.user_sink.lock().await = Some(user_sink);
-            Some(user_stream)
+            Some(user_socket)
         } else {
             None
+        };
+
+        let (public_sink, public_stream) = public_socket.split();
+        *self.public_sink.lock().await = Some(public_sink);
+
+        let user_stream = match user_socket {
+            Some(socket) => {
+                let (user_sink, user_stream) = socket.split();
+                *self.user_sink.lock().await = Some(user_sink);
+                Some(user_stream)
+            }
+            None => None,
         };
 
         Ok((public_stream, user_stream))
@@ -246,7 +249,7 @@ impl ClientInner {
         }
 
         let msg = self.build_subscription_message(channel, "subscribe")?;
-        self.send_message(&endpoint, msg).await?;
+        self.send_message(endpoint, msg).await?;
 
         // Track subscription.
         self.subscriptions.lock().await.add(channel);
@@ -258,7 +261,7 @@ impl ClientInner {
     async fn unsubscribe_one(&self, channel: &Channel) -> Result<()> {
         let endpoint = channel.endpoint_type();
         let msg = self.build_subscription_message(channel, "unsubscribe")?;
-        self.send_message(&endpoint, msg).await?;
+        self.send_message(endpoint, msg).await?;
 
         // Update subscription tracking.
         self.subscriptions.lock().await.remove(channel);
@@ -270,33 +273,29 @@ impl ClientInner {
     ///
     /// Authenticated channels get a freshly minted JWT on every call,
     /// so resubscribes after a reconnect never reuse an expired token.
-    fn build_subscription_message(&self, channel: &Channel, action: &str) -> Result<WsMessage> {
-        let channel_name = ChannelName::from(channel);
-        let product_ids = channel.product_ids().to_vec();
-
-        let msg = if channel.requires_auth() {
-            let jwt = self.generate_jwt()?;
-            SubscriptionMessage {
-                r#type: action.to_string(),
-                product_ids,
-                channel: channel_name,
-                jwt: Some(jwt),
-                timestamp: None,
-            }
+    fn build_subscription_message(
+        &self,
+        channel: &Channel,
+        action: &'static str,
+    ) -> Result<WsMessage> {
+        // Authenticated channels carry a JWT, public channels a timestamp.
+        let (jwt, timestamp) = if channel.requires_auth() {
+            (Some(self.generate_jwt()?), None)
         } else {
             let timestamp = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map_err(|e| Error::websocket(format!("Failed to get timestamp: {}", e)))?
                 .as_secs()
                 .to_string();
+            (None, Some(timestamp))
+        };
 
-            SubscriptionMessage {
-                r#type: action.to_string(),
-                product_ids,
-                channel: channel_name,
-                jwt: None,
-                timestamp: Some(timestamp),
-            }
+        let msg = SubscriptionMessage {
+            r#type: action,
+            product_ids: channel.product_ids().to_vec(),
+            channel: ChannelName::from(channel),
+            jwt,
+            timestamp,
         };
 
         let json = serde_json::to_string(&msg)
@@ -315,7 +314,7 @@ impl ClientInner {
     }
 
     /// Send a message to the appropriate endpoint.
-    async fn send_message(&self, endpoint: &EndpointType, msg: WsMessage) -> Result<()> {
+    async fn send_message(&self, endpoint: EndpointType, msg: WsMessage) -> Result<()> {
         let sink = match endpoint {
             EndpointType::Public => &self.public_sink,
             EndpointType::User => &self.user_sink,
@@ -335,27 +334,29 @@ impl ClientInner {
     }
 
     /// Reconnect with exponential backoff and resubscribe to tracked channels.
-    async fn reconnect(&self) -> Result<(Option<WsStream>, Option<WsStream>)> {
-        let mut retry_count = 0;
+    ///
+    /// The first attempt is made immediately, the backoff only applies
+    /// between failed attempts.
+    async fn reconnect(&self) -> Result<(WsStream, Option<WsStream>)> {
         let mut delay = Duration::from_secs(1);
 
-        while retry_count < self.max_retries {
-            tokio::time::sleep(delay).await;
-
+        for attempt in 1..=self.max_retries {
             match self.connect_streams().await {
                 Ok((public_stream, user_stream)) => match self.resubscribe().await {
-                    Ok(()) => return Ok((Some(public_stream), user_stream)),
+                    Ok(()) => return Ok((public_stream, user_stream)),
                     Err(e) => {
                         tracing::warn!("Resubscribe after reconnect failed: {}", e);
                     }
                 },
                 Err(e) => {
-                    tracing::warn!("Reconnect attempt {} failed: {}", retry_count + 1, e);
+                    tracing::warn!("Reconnect attempt {} failed: {}", attempt, e);
                 }
             }
 
-            retry_count += 1;
-            delay = std::cmp::min(delay * 2, Duration::from_secs(60));
+            if attempt < self.max_retries {
+                tokio::time::sleep(delay).await;
+                delay = std::cmp::min(delay * 2, Duration::from_secs(60));
+            }
         }
 
         Err(Error::websocket(format!(
@@ -538,7 +539,7 @@ impl Stream for MessageStream {
                 match fut.as_mut().poll(cx) {
                     Poll::Ready(Ok((public_stream, user_stream))) => {
                         this.reconnect = None;
-                        this.public_stream = public_stream;
+                        this.public_stream = Some(public_stream);
                         this.user_stream = user_stream;
                         this.last_public_seq = None;
                         this.last_user_seq = None;
@@ -553,8 +554,11 @@ impl Stream for MessageStream {
 
             let validate = this.inner.validate_sequence;
             let mut progressed = false;
-            let mut lost: Option<Option<Error>> = None;
+            let mut connection_lost = false;
+            let mut loss_error: Option<Error> = None;
 
+            // Always poll both sides so the surviving side registers its
+            // waker even when the other side is lost.
             match Self::poll_side(
                 &mut this.public_stream,
                 &mut this.last_public_seq,
@@ -563,32 +567,38 @@ impl Stream for MessageStream {
                 cx,
             ) {
                 SideEvent::Item(item) => return Poll::Ready(Some(item)),
-                SideEvent::Lost(err) => lost = Some(err),
+                SideEvent::Lost(err) => {
+                    connection_lost = true;
+                    loss_error = err;
+                }
                 SideEvent::Progress => progressed = true,
                 SideEvent::Pending => {}
             }
 
-            if lost.is_none() {
-                match Self::poll_side(
-                    &mut this.user_stream,
-                    &mut this.last_user_seq,
-                    validate,
-                    &mut this.pending,
-                    cx,
-                ) {
-                    SideEvent::Item(item) => return Poll::Ready(Some(item)),
-                    SideEvent::Lost(err) => lost = Some(err),
-                    SideEvent::Progress => progressed = true,
-                    SideEvent::Pending => {}
+            match Self::poll_side(
+                &mut this.user_stream,
+                &mut this.last_user_seq,
+                validate,
+                &mut this.pending,
+                cx,
+            ) {
+                SideEvent::Item(item) => return Poll::Ready(Some(item)),
+                SideEvent::Lost(err) => {
+                    connection_lost = true;
+                    if loss_error.is_none() {
+                        loss_error = err;
+                    }
                 }
+                SideEvent::Progress => progressed = true,
+                SideEvent::Pending => {}
             }
 
-            if let Some(err) = lost {
+            if connection_lost {
                 if this.inner.auto_reconnect {
                     this.start_reconnect();
                     continue;
                 }
-                if let Some(e) = err {
+                if let Some(e) = loss_error {
                     return Poll::Ready(Some(Err(e)));
                 }
                 // Connection closed cleanly, fall through to the end check.
@@ -658,7 +668,7 @@ mod tests {
         let client = WebSocketClient::builder().build().unwrap();
         assert!(client.inner.credentials.is_none());
         assert!(!client.inner.auto_reconnect);
-        assert_eq!(client.inner.max_retries, 0);
+        assert_eq!(client.inner.max_retries, 10);
         assert!(!client.inner.sandbox);
         assert!(!client.inner.validate_sequence);
     }
@@ -684,7 +694,7 @@ mod tests {
     #[test]
     fn test_subscription_message_serialize() {
         let msg = SubscriptionMessage {
-            r#type: "subscribe".to_string(),
+            r#type: "subscribe",
             product_ids: vec!["BTC-USD".to_string()],
             channel: ChannelName::Ticker,
             jwt: None,
@@ -721,7 +731,7 @@ mod tests {
 
     #[test]
     fn test_subscriptions_dedupe() {
-        let mut subs = Subscriptions::new();
+        let mut subs = Subscriptions::default();
         let channel = Channel::Ticker {
             product_ids: vec!["BTC-USD".to_string()],
         };

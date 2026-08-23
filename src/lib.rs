@@ -4,8 +4,10 @@
 //!
 //! ## Features
 //!
-//! - REST API client with JWT authentication
+//! - REST API client with JWT authentication (ES256 and EdDSA keys)
+//! - WebSocket streaming with auto-reconnect and resubscribe
 //! - Strongly typed request/response models
+//! - Optional client-side rate limiting and retries with backoff
 //! - Async/await support with tokio
 //! - Support for both production and sandbox environments
 //!

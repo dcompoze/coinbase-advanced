@@ -41,12 +41,13 @@ async fn test_get_candles() {
 async fn test_get_candles_ext_chunks_long_ranges() {
     let mock_server = MockServer::start().await;
 
-    // 700 one-minute candles require two windows of 350 candles.
+    // 700 one-minute candles require two windows of at most 350 candles.
+    // Window bounds are inclusive, so a full window spans 349 minutes.
     // Coinbase returns candles newest first within a window.
     Mock::given(method("GET"))
         .and(path("/api/v3/brokerage/products/BTC-USD/candles"))
         .and(query_param("start", "0"))
-        .and(query_param("end", "21000"))
+        .and(query_param("end", "20940"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "candles": [candle_json(60), candle_json(0)]
         })))
@@ -57,7 +58,7 @@ async fn test_get_candles_ext_chunks_long_ranges() {
     Mock::given(method("GET"))
         .and(path("/api/v3/brokerage/products/BTC-USD/candles"))
         .and(query_param("start", "21000"))
-        .and(query_param("end", "42000"))
+        .and(query_param("end", "41940"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "candles": [candle_json(21060), candle_json(21000)]
         })))
@@ -71,7 +72,7 @@ async fn test_get_candles_ext_chunks_long_ranges() {
         .get_candles_ext(GetCandlesParams::new(
             "BTC-USD",
             "0",
-            "42000",
+            "41940",
             Granularity::OneMinute,
         ))
         .await

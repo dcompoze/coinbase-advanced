@@ -183,9 +183,12 @@ impl<'a> OrdersApi<'a> {
         let mut params = params;
         loop {
             let response = self.list_fills(params.clone()).await?;
+            // An empty page ends the loop even if the server echoes a cursor,
+            // the fills response has no `has_next` field to rely on.
+            let page_empty = response.fills.is_empty();
             fills.extend(response.fills);
             match response.cursor {
-                Some(cursor) if !cursor.is_empty() => {
+                Some(cursor) if !page_empty && !cursor.is_empty() => {
                     params.cursor = Some(cursor);
                 }
                 _ => break,

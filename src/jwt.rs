@@ -48,8 +48,11 @@ pub(crate) fn detect_key_kind(private_key: &str) -> Result<KeyKind> {
             "-----END PRIVATE KEY-----",
         )?;
         // Ed25519 OID 1.3.101.112 encoded as 06 03 2B 65 70.
+        // Only the AlgorithmIdentifier near the start of the DER is checked
+        // so random key material cannot cause a misdetection.
         const ED25519_OID: [u8; 5] = [0x06, 0x03, 0x2b, 0x65, 0x70];
-        if der.windows(ED25519_OID.len()).any(|w| w == ED25519_OID) {
+        let prefix = der.get(..16).unwrap_or(&der);
+        if prefix.windows(ED25519_OID.len()).any(|w| w == ED25519_OID) {
             return Ok(KeyKind::Ed25519Pkcs8);
         }
         return Ok(KeyKind::EcdsaPkcs8);
@@ -160,11 +163,12 @@ fn sign_jwt<H: Serialize, C: Serialize>(
         KeyKind::EcdsaSec1 | KeyKind::EcdsaPkcs8 => {
             sign_es256(signing_input.as_bytes(), credentials.private_key())?
         }
-        KeyKind::Ed25519Pkcs8 | KeyKind::Ed25519Raw => sign_ed25519(
-            signing_input.as_bytes(),
-            credentials.private_key(),
-            credentials.key_kind(),
-        )?,
+        KeyKind::Ed25519Pkcs8 => {
+            sign_ed25519_pkcs8(signing_input.as_bytes(), credentials.private_key())?
+        }
+        KeyKind::Ed25519Raw => {
+            sign_ed25519_raw(signing_input.as_bytes(), credentials.private_key())?
+        }
     };
     let signature_b64 = base64_url_encode(&signature);
 
@@ -189,35 +193,34 @@ fn sign_es256(data: &[u8], pem_key: &str) -> Result<Vec<u8>> {
     Ok(signature.as_ref().to_vec())
 }
 
-/// Sign data with Ed25519 using a PKCS#8 PEM or raw base64 key.
-fn sign_ed25519(data: &[u8], key: &str, kind: KeyKind) -> Result<Vec<u8>> {
-    let key_pair = match kind {
-        KeyKind::Ed25519Pkcs8 => {
-            let der = pem_body(
-                key.trim(),
-                "-----BEGIN PRIVATE KEY-----",
-                "-----END PRIVATE KEY-----",
-            )?;
-            Ed25519KeyPair::from_pkcs8_maybe_unchecked(&der)
-                .map_err(|e| Error::jwt(format!("Failed to parse Ed25519 key: {}", e)))?
+/// Sign data with Ed25519 using a PKCS#8 PEM key.
+fn sign_ed25519_pkcs8(data: &[u8], key: &str) -> Result<Vec<u8>> {
+    let der = pem_body(
+        key.trim(),
+        "-----BEGIN PRIVATE KEY-----",
+        "-----END PRIVATE KEY-----",
+    )?;
+    let key_pair = Ed25519KeyPair::from_pkcs8_maybe_unchecked(&der)
+        .map_err(|e| Error::jwt(format!("Failed to parse Ed25519 key: {}", e)))?;
+
+    Ok(key_pair.sign(data).as_ref().to_vec())
+}
+
+/// Sign data with Ed25519 using a raw base64 key.
+fn sign_ed25519_raw(data: &[u8], key: &str) -> Result<Vec<u8>> {
+    let compact: String = key.chars().filter(|c| !c.is_whitespace()).collect();
+    let bytes = base64_decode(&compact)?;
+    let key_pair = match bytes.len() {
+        32 => Ed25519KeyPair::from_seed_unchecked(&bytes)
+            .map_err(|e| Error::jwt(format!("Failed to parse Ed25519 seed: {}", e)))?,
+        64 => Ed25519KeyPair::from_seed_and_public_key(&bytes[..32], &bytes[32..])
+            .map_err(|e| Error::jwt(format!("Failed to parse Ed25519 key: {}", e)))?,
+        n => {
+            return Err(Error::jwt(format!(
+                "Unsupported raw Ed25519 key length {}",
+                n
+            )));
         }
-        KeyKind::Ed25519Raw => {
-            let compact: String = key.chars().filter(|c| !c.is_whitespace()).collect();
-            let bytes = base64_decode(&compact)?;
-            match bytes.len() {
-                32 => Ed25519KeyPair::from_seed_unchecked(&bytes)
-                    .map_err(|e| Error::jwt(format!("Failed to parse Ed25519 seed: {}", e)))?,
-                64 => Ed25519KeyPair::from_seed_and_public_key(&bytes[..32], &bytes[32..])
-                    .map_err(|e| Error::jwt(format!("Failed to parse Ed25519 key: {}", e)))?,
-                n => {
-                    return Err(Error::jwt(format!(
-                        "Unsupported raw Ed25519 key length {}",
-                        n
-                    )));
-                }
-            }
-        }
-        _ => return Err(Error::jwt("Not an Ed25519 key")),
     };
 
     Ok(key_pair.sign(data).as_ref().to_vec())
@@ -229,9 +232,12 @@ fn pem_body(pem: &str, start_marker: &str, end_marker: &str) -> Result<Vec<u8>> 
         .find(start_marker)
         .ok_or_else(|| Error::jwt("Invalid PEM format: missing BEGIN marker"))?
         + start_marker.len();
-    let end = pem
+    // Search for the END marker after the BEGIN marker so a
+    // malformed blob cannot produce an inverted slice.
+    let end = pem[start..]
         .find(end_marker)
-        .ok_or_else(|| Error::jwt("Invalid PEM format: missing END marker"))?;
+        .ok_or_else(|| Error::jwt("Invalid PEM format: missing END marker"))?
+        + start;
 
     let b64_content: String = pem[start..end]
         .chars()
@@ -285,17 +291,9 @@ fn parse_ec_private_key_pem(pem: &str) -> Result<Vec<u8>> {
 fn convert_sec1_to_pkcs8(sec1_der: &[u8]) -> Result<Vec<u8>> {
     // Construct the PKCS#8 structure.
     // The SEC1 key needs to be wrapped in an OCTET STRING.
-    let sec1_len = sec1_der.len();
-
-    // Build OCTET STRING for the private key.
     let mut octet_string = Vec::new();
     octet_string.push(0x04); // OCTET STRING tag
-    if sec1_len < 128 {
-        octet_string.push(sec1_len as u8);
-    } else {
-        octet_string.push(0x81);
-        octet_string.push(sec1_len as u8);
-    }
+    push_der_length(&mut octet_string, sec1_der.len());
     octet_string.extend_from_slice(sec1_der);
 
     // Build AlgorithmIdentifier.
@@ -314,21 +312,26 @@ fn convert_sec1_to_pkcs8(sec1_der: &[u8]) -> Result<Vec<u8>> {
     // Build final PKCS#8 structure.
     let mut pkcs8 = Vec::new();
     pkcs8.push(0x30); // SEQUENCE tag
-    if content_len < 128 {
-        pkcs8.push(content_len as u8);
-    } else if content_len < 256 {
-        pkcs8.push(0x81);
-        pkcs8.push(content_len as u8);
-    } else {
-        pkcs8.push(0x82);
-        pkcs8.push((content_len >> 8) as u8);
-        pkcs8.push((content_len & 0xff) as u8);
-    }
+    push_der_length(&mut pkcs8, content_len);
     pkcs8.extend_from_slice(version);
     pkcs8.extend_from_slice(alg_id);
     pkcs8.extend_from_slice(&octet_string);
 
     Ok(pkcs8)
+}
+
+/// Push a DER length field (short, one, or two byte long form).
+fn push_der_length(out: &mut Vec<u8>, length: usize) {
+    if length < 128 {
+        out.push(length as u8);
+    } else if length < 256 {
+        out.push(0x81);
+        out.push(length as u8);
+    } else {
+        out.push(0x82);
+        out.push((length >> 8) as u8);
+        out.push((length & 0xff) as u8);
+    }
 }
 
 /// Base64 URL-safe encoding without padding.
@@ -360,7 +363,10 @@ fn base64_url_encode(data: &[u8]) -> String {
     result
 }
 
-/// Standard Base64 decoding.
+/// Base64 decoding that accepts both the standard and URL-safe alphabets.
+///
+/// Padding is allowed only at the end. Any other invalid character or an
+/// invalid length is rejected instead of producing wrong bytes.
 pub(crate) fn base64_decode(input: &str) -> Result<Vec<u8>> {
     let alphabet = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut lookup = [255u8; 256];
@@ -370,40 +376,30 @@ pub(crate) fn base64_decode(input: &str) -> Result<Vec<u8>> {
     lookup[b'-' as usize] = 62; // URL-safe variant
     lookup[b'_' as usize] = 63; // URL-safe variant
 
-    let input: Vec<u8> = input.bytes().filter(|&b| b != b'=').collect();
+    let input = input.trim_end_matches('=').as_bytes();
+    if input.len() % 4 == 1 {
+        return Err(Error::jwt("Invalid base64 length"));
+    }
+
     let mut result = Vec::with_capacity(input.len() * 3 / 4);
-
-    let mut i = 0;
-    while i < input.len() {
-        let b0 = lookup[input[i] as usize] as usize;
-        let b1 = input
-            .get(i + 1)
-            .map(|&b| lookup[b as usize] as usize)
-            .unwrap_or(0);
-        let b2 = input
-            .get(i + 2)
-            .map(|&b| lookup[b as usize] as usize)
-            .unwrap_or(0);
-        let b3 = input
-            .get(i + 3)
-            .map(|&b| lookup[b as usize] as usize)
-            .unwrap_or(0);
-
-        if b0 == 255 || b1 == 255 {
-            return Err(Error::jwt("Invalid base64 character"));
+    for chunk in input.chunks(4) {
+        let mut n: usize = 0;
+        for &byte in chunk {
+            let value = lookup[byte as usize];
+            if value == 255 {
+                return Err(Error::jwt("Invalid base64 character"));
+            }
+            n = (n << 6) | value as usize;
         }
-
-        let n = (b0 << 18) | (b1 << 12) | (b2 << 6) | b3;
+        n <<= 6 * (4 - chunk.len());
 
         result.push((n >> 16) as u8);
-        if i + 2 < input.len() && b2 != 255 {
+        if chunk.len() >= 3 {
             result.push((n >> 8) as u8);
         }
-        if i + 3 < input.len() && b3 != 255 {
+        if chunk.len() == 4 {
             result.push(n as u8);
         }
-
-        i += 4;
     }
 
     Ok(result)
@@ -423,6 +419,28 @@ mod tests {
     fn test_base64_decode() {
         let decoded = base64_decode("aGVsbG8").unwrap();
         assert_eq!(decoded, b"hello");
+        // Trailing padding is accepted.
+        assert_eq!(base64_decode("aGVsbG8=").unwrap(), b"hello");
+    }
+
+    #[test]
+    fn test_base64_decode_rejects_invalid_input() {
+        // A length of 4n + 1 is never valid base64.
+        assert!(base64_decode("aGVsb").is_err());
+        // Invalid characters are rejected in every position.
+        assert!(base64_decode("aGV$bG8").is_err());
+        assert!(base64_decode("aGVsbG$").is_err());
+        // Interior padding is rejected.
+        assert!(base64_decode("aG=sbG8=").is_err());
+    }
+
+    #[test]
+    fn test_pem_body_inverted_markers() {
+        // END before BEGIN must error, not panic.
+        let pem = "-----END EC PRIVATE KEY-----\nAAAA\n-----BEGIN EC PRIVATE KEY-----";
+        assert!(detect_key_kind(pem).is_ok());
+        let creds = Credentials::new("test-key", pem).unwrap();
+        assert!(generate_ws_jwt(&creds).is_err());
     }
 
     #[test]

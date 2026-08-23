@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::channels::ChannelName;
 
 /// A message received from the WebSocket.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Message {
     /// The channel the message is from.
     pub channel: ChannelName,
@@ -17,6 +17,64 @@ pub struct Message {
     pub sequence_num: u64,
     /// The events in the message.
     pub events: Events,
+}
+
+impl<'de> Deserialize<'de> for Message {
+    /// Deserialize a message and dispatch the events on the `channel` field.
+    ///
+    /// Dispatching by channel avoids the mis-detection an untagged enum has
+    /// for structurally similar or empty event payloads.
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct RawMessage {
+            channel: ChannelName,
+            #[serde(default)]
+            client_id: String,
+            #[serde(default)]
+            timestamp: String,
+            #[serde(default)]
+            sequence_num: u64,
+            #[serde(default = "empty_events")]
+            events: serde_json::Value,
+        }
+
+        fn empty_events() -> serde_json::Value {
+            serde_json::Value::Array(Vec::new())
+        }
+
+        fn parse<T, E>(value: serde_json::Value) -> std::result::Result<Vec<T>, E>
+        where
+            T: serde::de::DeserializeOwned,
+            E: serde::de::Error,
+        {
+            serde_json::from_value(value).map_err(E::custom)
+        }
+
+        let raw = RawMessage::deserialize(deserializer)?;
+        let events = match raw.channel {
+            ChannelName::Status => Events::Status(parse(raw.events)?),
+            ChannelName::Candles => Events::Candles(parse(raw.events)?),
+            // Ticker and ticker batch share the same event payload.
+            ChannelName::Ticker | ChannelName::TickerBatch => Events::Ticker(parse(raw.events)?),
+            ChannelName::Level2 => Events::Level2(parse(raw.events)?),
+            ChannelName::User => Events::User(parse(raw.events)?),
+            ChannelName::MarketTrades => Events::MarketTrades(parse(raw.events)?),
+            ChannelName::Heartbeats => Events::Heartbeats(parse(raw.events)?),
+            ChannelName::Subscriptions => Events::Subscriptions(parse(raw.events)?),
+            ChannelName::FuturesBalanceSummary => Events::FuturesBalanceSummary(parse(raw.events)?),
+        };
+
+        Ok(Message {
+            channel: raw.channel,
+            client_id: raw.client_id,
+            timestamp: raw.timestamp,
+            sequence_num: raw.sequence_num,
+            events,
+        })
+    }
 }
 
 /// Events that can be received in a message.
@@ -66,6 +124,7 @@ pub struct StatusEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProductStatus {
     /// Product type.
+    #[serde(default)]
     pub product_type: String,
     /// Product ID.
     pub id: String,
@@ -78,6 +137,7 @@ pub struct ProductStatus {
     /// Minimum quote increment.
     pub quote_increment: String,
     /// Display name.
+    #[serde(default)]
     pub display_name: String,
     /// Product status.
     pub status: String,
@@ -85,6 +145,7 @@ pub struct ProductStatus {
     #[serde(default)]
     pub status_message: String,
     /// Minimum market funds.
+    #[serde(default)]
     pub min_market_funds: String,
 }
 
@@ -165,6 +226,7 @@ pub struct Level2Update {
     /// Side (bid or ask).
     pub side: Level2Side,
     /// Event time.
+    #[serde(default)]
     pub event_time: String,
     /// Price level.
     pub price_level: String,
@@ -235,7 +297,8 @@ pub struct OrderUpdate {
     #[serde(default)]
     pub outstanding_hold_amount: String,
     /// Post-only flag.
-    #[serde(default)]
+    /// The API sends this as a string in user channel messages.
+    #[serde(default, deserialize_with = "bool_from_bool_or_string")]
     pub post_only: bool,
     /// Product ID.
     pub product_id: String,
@@ -279,6 +342,31 @@ pub struct OrderUpdate {
     pub start_time: String,
 }
 
+/// Deserialize a bool that the API may send as either a bool or a string.
+fn bool_from_bool_or_string<'de, D>(deserializer: D) -> std::result::Result<bool, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum BoolOrString {
+        Bool(bool),
+        Str(String),
+    }
+
+    match BoolOrString::deserialize(deserializer)? {
+        BoolOrString::Bool(value) => Ok(value),
+        BoolOrString::Str(value) => match value.to_ascii_lowercase().as_str() {
+            "true" => Ok(true),
+            "false" | "" => Ok(false),
+            other => Err(serde::de::Error::custom(format!(
+                "invalid boolean string: {}",
+                other
+            ))),
+        },
+    }
+}
+
 /// Market trades event.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketTradesEvent {
@@ -302,6 +390,7 @@ pub struct TradeUpdate {
     /// Trade side (BUY or SELL).
     pub side: String,
     /// Trade time.
+    #[serde(default)]
     pub time: String,
 }
 
@@ -322,6 +411,7 @@ pub struct SubscriptionsEvent {
 }
 
 /// Current subscription status.
+/// Channels the connection is not subscribed to are empty.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SubscriptionStatus {
     /// Status channel subscriptions.
@@ -335,16 +425,22 @@ pub struct SubscriptionStatus {
     pub ticker_batch: Vec<String>,
     /// Level 2 channel subscriptions.
     #[serde(default)]
-    pub level2: Option<Vec<String>>,
+    pub level2: Vec<String>,
+    /// Candles channel subscriptions.
+    #[serde(default)]
+    pub candles: Vec<String>,
     /// User channel subscriptions.
     #[serde(default)]
-    pub user: Option<Vec<String>>,
+    pub user: Vec<String>,
     /// Market trades channel subscriptions.
     #[serde(default)]
-    pub market_trades: Option<Vec<String>>,
+    pub market_trades: Vec<String>,
     /// Heartbeats channel subscriptions.
     #[serde(default)]
-    pub heartbeats: Option<Vec<String>>,
+    pub heartbeats: Vec<String>,
+    /// Futures balance summary channel subscriptions.
+    #[serde(default)]
+    pub futures_balance_summary: Vec<String>,
 }
 
 /// Futures balance summary event.
@@ -421,6 +517,52 @@ mod tests {
 
         let msg: Result<Message, _> = serde_json::from_str(data);
         assert!(msg.is_ok());
+    }
+
+    #[test]
+    fn test_events_dispatch_on_channel() {
+        // Empty events must dispatch to the channel's variant,
+        // not fall through to the first untagged variant.
+        let data =
+            r#"{"channel":"ticker","client_id":"","timestamp":"t","sequence_num":1,"events":[]}"#;
+        let msg: Message = serde_json::from_str(data).unwrap();
+        assert!(matches!(msg.events, Events::Ticker(ref e) if e.is_empty()));
+
+        // Ticker batch shares the ticker payload.
+        let data = r#"{"channel":"ticker_batch","client_id":"","timestamp":"t","sequence_num":1,"events":[]}"#;
+        let msg: Message = serde_json::from_str(data).unwrap();
+        assert!(matches!(msg.events, Events::Ticker(_)));
+
+        // Missing envelope fields get defaults.
+        let data = r#"{"channel":"heartbeats"}"#;
+        let msg: Message = serde_json::from_str(data).unwrap();
+        assert_eq!(msg.sequence_num, 0);
+        assert!(matches!(msg.events, Events::Heartbeats(ref e) if e.is_empty()));
+    }
+
+    #[test]
+    fn test_order_update_post_only_string() {
+        let data = r#"{
+            "order_id": "o1",
+            "order_side": "BUY",
+            "order_type": "Limit",
+            "post_only": "true",
+            "product_id": "BTC-USD",
+            "status": "OPEN"
+        }"#;
+        let update: OrderUpdate = serde_json::from_str(data).unwrap();
+        assert!(update.post_only);
+
+        let data = r#"{
+            "order_id": "o1",
+            "order_side": "BUY",
+            "order_type": "Limit",
+            "post_only": false,
+            "product_id": "BTC-USD",
+            "status": "OPEN"
+        }"#;
+        let update: OrderUpdate = serde_json::from_str(data).unwrap();
+        assert!(!update.post_only);
     }
 
     #[test]

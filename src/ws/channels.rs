@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Endpoint types for WebSocket connections.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EndpointType {
     /// Public endpoint for unauthenticated market data.
     Public,

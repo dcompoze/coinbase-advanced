@@ -17,7 +17,7 @@ pub const WS_SANDBOX_URL: &str = "wss://advanced-trade-ws-sandbox.coinbase.com";
 pub const WS_USER_URL: &str = "wss://advanced-trade-ws-user.coinbase.com";
 
 /// User agent string for HTTP requests.
-pub const USER_AGENT: &str = concat!("coinbase-client-rust/", env!("CARGO_PKG_VERSION"));
+pub const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 /// JWT issuer claim.
 pub const JWT_ISSUER: &str = "cdp";

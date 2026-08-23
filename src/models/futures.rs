@@ -93,14 +93,6 @@ pub struct GetFuturesBalanceSummaryResponse {
     pub balance_summary: FuturesBalanceSummary,
 }
 
-/// Intraday margin setting.
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct IntradayMarginSetting {
-    /// The margin setting value.
-    #[serde(default)]
-    pub setting: Option<String>,
-}
-
 /// Response for getting intraday margin setting.
 #[derive(Debug, Clone, Deserialize)]
 pub struct GetIntradayMarginSettingResponse {

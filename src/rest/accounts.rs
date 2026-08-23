@@ -56,7 +56,7 @@ impl<'a> AccountsApi<'a> {
             accounts.extend(response.accounts);
             match (response.has_next, response.cursor) {
                 (true, Some(cursor)) if !cursor.is_empty() => {
-                    params = ListAccountsParams::default().cursor(cursor);
+                    params.cursor = Some(cursor);
                 }
                 _ => break,
             }

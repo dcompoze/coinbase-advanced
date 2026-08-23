@@ -34,11 +34,11 @@ tracing = "0.1.44"
 url = "2.5.8"
 
 [dev-dependencies]
-futures = "0.3"
-tokio-tungstenite = "0.30"
 dotenv = "0.15"
+futures = "0.3"
 tokio = { version = "1.49", features = ["full"] }
 tokio-test = "0.4"
+tokio-tungstenite = "0.30"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 wiremock = "0.6"

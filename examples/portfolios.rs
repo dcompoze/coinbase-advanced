@@ -45,7 +45,7 @@ async fn main() -> coinbase_advanced::Result<()> {
 
     // Example: Create, edit, and delete a portfolio (commented out for safety)
     /*
-    use coinbase_advanced::models::{CreatePortfolioRequest, EditPortfolioRequest, MoveFundsRequest};
+    use coinbase_advanced::models::{CreatePortfolioRequest, EditPortfolioRequest};
 
     let created = client.portfolios()
         .create(CreatePortfolioRequest::new("My Portfolio"))

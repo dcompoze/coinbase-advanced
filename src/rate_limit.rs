@@ -8,7 +8,12 @@
 //! According to Coinbase documentation:
 //! - Public REST endpoints: ~10 requests/second
 //! - Private REST endpoints: ~30 requests/second
-//! - WebSocket: ~750 messages/second (authenticated)
+//! - Public WebSocket: ~8 messages/second
+//! - Private WebSocket: ~750 messages/second
+//!
+//! The `RestClient` applies the REST limits when rate limiting is enabled.
+//! The WebSocket buckets are provided for callers that want to throttle
+//! their own subscription traffic.
 //!
 //! # Usage
 //!
@@ -44,7 +49,7 @@ pub mod limits {
 /// Implements the token bucket algorithm for rate limiting. Tokens are added to the
 /// bucket at a fixed rate, up to a maximum capacity. Each request consumes one token.
 /// If no tokens are available, the caller can wait until a token becomes available.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TokenBucket {
     /// Maximum number of tokens in the bucket.
     max_tokens: f64,
@@ -63,7 +68,20 @@ impl TokenBucket {
     ///
     /// * `max_tokens` - Maximum number of tokens the bucket can hold.
     /// * `refill_rate` - Number of tokens to add per second.
+    ///
+    /// Non-positive or non-finite values are clamped to small positive
+    /// minimums so waiting on the bucket can never panic or divide by zero.
     pub fn new(max_tokens: f64, refill_rate: f64) -> Self {
+        let max_tokens = if max_tokens.is_finite() {
+            max_tokens.max(1.0)
+        } else {
+            1.0
+        };
+        let refill_rate = if refill_rate.is_finite() {
+            refill_rate.max(0.001)
+        } else {
+            0.001
+        };
         Self {
             max_tokens,
             refill_rate,
@@ -113,19 +131,15 @@ impl TokenBucket {
     }
 
     /// Get the time until the next token is available.
+    ///
+    /// Accounts for tokens accrued since the last update without mutating state.
     pub fn time_until_available(&self) -> Duration {
-        if self.tokens >= 1.0 {
+        let elapsed = self.last_update.elapsed().as_secs_f64();
+        let tokens = (self.tokens + elapsed * self.refill_rate).min(self.max_tokens);
+        if tokens >= 1.0 {
             Duration::ZERO
         } else {
-            Duration::from_secs_f64((1.0 - self.tokens) / self.refill_rate)
-        }
-    }
-
-    /// Wait until a token is available and consume it.
-    pub async fn wait_and_consume(&mut self) {
-        while !self.try_consume() {
-            let wait_time = self.time_until_available();
-            tokio::time::sleep(wait_time).await;
+            Duration::from_secs_f64((1.0 - tokens) / self.refill_rate)
         }
     }
 

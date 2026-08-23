@@ -110,6 +110,13 @@ impl RestClientBuilder {
                 API_BASE_URL.to_string()
             }
         });
+        let base_url = base_url.trim_end_matches('/').to_string();
+
+        // The JWT `uri` claim must name the host actually being called.
+        let host = Url::parse(&base_url)
+            .map_err(Error::Url)?
+            .authority()
+            .to_string();
 
         let reqwest_client = Client::builder()
             .timeout(self.timeout)
@@ -141,6 +148,7 @@ impl RestClientBuilder {
         Ok(RestClient {
             http_client: client_builder.build(),
             base_url,
+            host,
             credentials: self.credentials,
             private_limiter,
             public_limiter,
@@ -153,6 +161,7 @@ impl RestClientBuilder {
 pub struct RestClient {
     http_client: ClientWithMiddleware,
     base_url: String,
+    host: String,
     credentials: Option<Credentials>,
     private_limiter: Option<RateLimiter>,
     public_limiter: Option<RateLimiter>,
@@ -400,35 +409,10 @@ impl RestClient {
         Url::parse(&url_str).map_err(Error::Url)
     }
 
-    /// Build authentication headers for a request.
-    fn build_auth_headers(&self, method: &str, path: &str) -> Result<HeaderMap> {
-        let mut headers = HeaderMap::new();
-
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
-        headers.insert(USER_AGENT, HeaderValue::from_static(UA));
-
-        if let Some(ref credentials) = self.credentials {
-            // Sign for the host actually being called so sandbox JWTs are valid.
-            let host = self
-                .base_url
-                .trim_start_matches("https://")
-                .trim_start_matches("http://");
-            let jwt = generate_jwt_with_host(credentials, method, host, path)?;
-            let auth_value = format!("Bearer {}", jwt);
-            headers.insert(
-                AUTHORIZATION,
-                HeaderValue::from_str(&auth_value)
-                    .map_err(|e| Error::request(format!("Invalid auth header: {}", e)))?,
-            );
-        }
-
-        Ok(headers)
-    }
-
     /// Make a GET request to an authenticated endpoint.
     pub async fn get<T: DeserializeOwned>(&self, endpoint: &str) -> Result<T> {
-        self.request::<(), T>(Method::GET, endpoint, None).await
+        self.execute::<(), (), T>(Method::GET, endpoint, None, None, true)
+            .await
     }
 
     /// Make a GET request with query parameters.
@@ -437,7 +421,7 @@ impl RestClient {
         endpoint: &str,
         query: &Q,
     ) -> Result<T> {
-        self.request_with_query::<Q, (), T>(Method::GET, endpoint, Some(query), None)
+        self.execute::<Q, (), T>(Method::GET, endpoint, Some(query), None, true)
             .await
     }
 
@@ -447,7 +431,8 @@ impl RestClient {
         endpoint: &str,
         body: &B,
     ) -> Result<T> {
-        self.request(Method::POST, endpoint, Some(body)).await
+        self.execute::<(), B, T>(Method::POST, endpoint, None, Some(body), true)
+            .await
     }
 
     /// Make a PUT request.
@@ -456,72 +441,19 @@ impl RestClient {
         endpoint: &str,
         body: &B,
     ) -> Result<T> {
-        self.request(Method::PUT, endpoint, Some(body)).await
+        self.execute::<(), B, T>(Method::PUT, endpoint, None, Some(body), true)
+            .await
     }
 
     /// Make a DELETE request.
     pub async fn delete<T: DeserializeOwned>(&self, endpoint: &str) -> Result<T> {
-        self.request::<(), T>(Method::DELETE, endpoint, None).await
-    }
-
-    /// Make a request to an authenticated endpoint.
-    async fn request<B: Serialize, T: DeserializeOwned>(
-        &self,
-        method: Method,
-        endpoint: &str,
-        body: Option<&B>,
-    ) -> Result<T> {
-        self.request_with_query::<(), B, T>(method, endpoint, None, body)
+        self.execute::<(), (), T>(Method::DELETE, endpoint, None, None, true)
             .await
-    }
-
-    /// Make a request with optional query parameters and body.
-    async fn request_with_query<Q: Serialize, B: Serialize, T: DeserializeOwned>(
-        &self,
-        method: Method,
-        endpoint: &str,
-        query: Option<&Q>,
-        body: Option<&B>,
-    ) -> Result<T> {
-        // Apply rate limiting if enabled.
-        if let Some(ref limiter) = self.private_limiter {
-            limiter.acquire().await;
-        }
-
-        let mut url = self.build_url(endpoint)?;
-
-        // Add query parameters.
-        if let Some(q) = query {
-            let query_string = serde_urlencoded::to_string(q)
-                .map_err(|e| Error::request(format!("Failed to encode query: {}", e)))?;
-            if !query_string.is_empty() {
-                url.set_query(Some(&query_string));
-            }
-        }
-
-        // Build the path for JWT signing (includes query string).
-        let path = if let Some(q) = url.query() {
-            format!("{}?{}", url.path(), q)
-        } else {
-            url.path().to_string()
-        };
-
-        let headers = self.build_auth_headers(method.as_str(), &path)?;
-
-        let mut request = self.http_client.request(method, url).headers(headers);
-
-        if let Some(b) = body {
-            request = request.json(b);
-        }
-
-        let response = request.send().await.map_err(map_middleware_error)?;
-
-        self.handle_response(response).await
     }
 
     /// Make a public (unauthenticated) GET request.
     pub async fn public_get<T: DeserializeOwned>(&self, endpoint: &str) -> Result<T> {
-        self.public_request::<(), T>(Method::GET, endpoint, None)
+        self.execute::<(), (), T>(Method::GET, endpoint, None, None, false)
             .await
     }
 
@@ -531,31 +463,28 @@ impl RestClient {
         endpoint: &str,
         query: &Q,
     ) -> Result<T> {
-        self.public_request_with_query::<Q, (), T>(Method::GET, endpoint, Some(query), None)
+        self.execute::<Q, (), T>(Method::GET, endpoint, Some(query), None, false)
             .await
     }
 
-    /// Make a public (unauthenticated) request.
-    async fn public_request<B: Serialize, T: DeserializeOwned>(
-        &self,
-        method: Method,
-        endpoint: &str,
-        body: Option<&B>,
-    ) -> Result<T> {
-        self.public_request_with_query::<(), B, T>(method, endpoint, None, body)
-            .await
-    }
-
-    /// Make a public request with optional query parameters.
-    async fn public_request_with_query<Q: Serialize, B: Serialize, T: DeserializeOwned>(
+    /// Execute a request against the API.
+    ///
+    /// Authenticated requests use the private rate limit bucket and carry a
+    /// bearer JWT, public requests use the public bucket and no auth header.
+    async fn execute<Q: Serialize, B: Serialize, T: DeserializeOwned>(
         &self,
         method: Method,
         endpoint: &str,
         query: Option<&Q>,
         body: Option<&B>,
+        authenticated: bool,
     ) -> Result<T> {
-        // Public endpoints have their own, lower rate limit.
-        if let Some(ref limiter) = self.public_limiter {
+        let limiter = if authenticated {
+            &self.private_limiter
+        } else {
+            &self.public_limiter
+        };
+        if let Some(limiter) = limiter {
             limiter.acquire().await;
         }
 
@@ -573,6 +502,20 @@ impl RestClient {
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
         headers.insert(USER_AGENT, HeaderValue::from_static(UA));
+
+        if authenticated {
+            let credentials = self
+                .credentials
+                .as_ref()
+                .ok_or_else(|| Error::auth("Credentials required for authenticated endpoints"))?;
+            // The signed URI is method + host + path, without the query string.
+            let jwt = generate_jwt_with_host(credentials, method.as_str(), &self.host, url.path())?;
+            headers.insert(
+                AUTHORIZATION,
+                HeaderValue::from_str(&format!("Bearer {}", jwt))
+                    .map_err(|e| Error::request(format!("Invalid auth header: {}", e)))?,
+            );
+        }
 
         let mut request = self.http_client.request(method, url).headers(headers);
 
@@ -602,6 +545,8 @@ impl RestClient {
         }
 
         // Check for rate limiting.
+        // Only the seconds form of `retry-after` is parsed,
+        // an HTTP date value yields `None`.
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
             let retry_after = response
                 .headers()
@@ -633,7 +578,14 @@ impl RestClient {
         }
 
         // Parse successful response.
-        serde_json::from_str(&body)
+        // Some endpoints return an empty body on success,
+        // treat it as JSON null so `()` and `Value` targets parse.
+        let json = if body.trim().is_empty() {
+            "null"
+        } else {
+            body.as_str()
+        };
+        serde_json::from_str(json)
             .map_err(|e| Error::parse(format!("Failed to parse response: {}", e), Some(body)))
     }
 }
@@ -642,9 +594,12 @@ impl RestClient {
 fn map_middleware_error(error: reqwest_middleware::Error) -> Error {
     match error {
         reqwest_middleware::Error::Reqwest(e) => Error::Http(e),
-        reqwest_middleware::Error::Middleware(e) => {
-            Error::request(format!("Middleware error: {}", e))
-        }
+        // Retry middleware wraps the final transport error,
+        // unwrap it so `Error::is_retryable` still classifies it.
+        reqwest_middleware::Error::Middleware(e) => match e.downcast::<reqwest::Error>() {
+            Ok(e) => Error::Http(e),
+            Err(e) => Error::request(format!("Middleware error: {}", e)),
+        },
     }
 }
 
