@@ -48,6 +48,8 @@ pub struct WebSocketClientBuilder {
     max_retries: u32,
     sandbox: bool,
     validate_sequence: bool,
+    public_url: Option<String>,
+    user_url: Option<String>,
 }
 
 impl WebSocketClientBuilder {
@@ -97,6 +99,22 @@ impl WebSocketClientBuilder {
         self
     }
 
+    /// Override the public WebSocket URL.
+    ///
+    /// Takes precedence over `sandbox`. Useful for testing against a mock server.
+    pub fn public_url(mut self, url: impl Into<String>) -> Self {
+        self.public_url = Some(url.into());
+        self
+    }
+
+    /// Override the user WebSocket URL.
+    ///
+    /// Useful for testing against a mock server.
+    pub fn user_url(mut self, url: impl Into<String>) -> Self {
+        self.user_url = Some(url.into());
+        self
+    }
+
     /// Build the WebSocket client.
     pub fn build(self) -> Result<WebSocketClient> {
         Ok(WebSocketClient {
@@ -106,6 +124,8 @@ impl WebSocketClientBuilder {
                 max_retries: self.max_retries,
                 sandbox: self.sandbox,
                 validate_sequence: self.validate_sequence,
+                public_url: self.public_url,
+                user_url: self.user_url,
                 public_sink: Mutex::new(None),
                 user_sink: Mutex::new(None),
                 subscriptions: Mutex::new(Subscriptions::new()),
@@ -168,14 +188,24 @@ struct ClientInner {
     max_retries: u32,
     sandbox: bool,
     validate_sequence: bool,
+    public_url: Option<String>,
+    user_url: Option<String>,
     public_sink: Mutex<Option<WsSink>>,
     user_sink: Mutex<Option<WsSink>>,
     subscriptions: Mutex<Subscriptions>,
 }
 
 impl ClientInner {
-    fn public_url(&self) -> &'static str {
-        if self.sandbox { WS_SANDBOX_URL } else { WS_URL }
+    fn public_url(&self) -> &str {
+        match self.public_url {
+            Some(ref url) => url,
+            None if self.sandbox => WS_SANDBOX_URL,
+            None => WS_URL,
+        }
+    }
+
+    fn user_url(&self) -> &str {
+        self.user_url.as_deref().unwrap_or(WS_USER_URL)
     }
 
     /// Connect both endpoints, install the sinks, and return the read halves.
@@ -189,7 +219,7 @@ impl ClientInner {
 
         // If we have credentials, also connect to the user endpoint.
         let user_stream = if self.credentials.is_some() {
-            let (user_socket, _) = connect_async(WS_USER_URL).await.map_err(|e| {
+            let (user_socket, _) = connect_async(self.user_url()).await.map_err(|e| {
                 Error::websocket(format!("Failed to connect to user WebSocket: {}", e))
             })?;
 

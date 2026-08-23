@@ -155,6 +155,35 @@ WebSocket endpoints:
 | User | ✓ |
 | Futures balance summary | ✓ |
 
+## Examples
+
+Runnable examples live in `examples/`. Most require `COINBASE_API_KEY` and
+`COINBASE_PRIVATE_KEY` environment variables.
+
+```sh
+cargo run --example basic          # Accounts, products, and fees overview
+cargo run --example public_data    # Public endpoints, no credentials needed
+cargo run --example market_data    # Prices, order book, and candles (incl. get_candles_ext)
+cargo run --example list_accounts  # Account balances
+cargo run --example orders         # List orders and fills, order builders
+cargo run --example portfolios     # Portfolios and breakdowns
+cargo run --example futures        # Futures balances, positions, and sweeps
+cargo run --example debug_products # Products endpoint with debug logging
+cargo run --example ws             # Public WebSocket ticker stream
+cargo run --example ws_user        # Authenticated user channel with auto-reconnect
+```
+
+## Testing
+
+```sh
+cargo test
+```
+
+Unit tests live next to the code in `src/`.
+Integration tests in `tests/` are split by area and run against local mock
+servers (wiremock for REST, a local WebSocket server for streaming), so no
+credentials or network access are needed.
+
 ## Project structure
 
 ```text
@@ -164,5 +193,5 @@ WebSocket endpoints:
 │   ├── models/                  # Request/response types and shared data models
 │   ├── ws/                      # WebSocket client, channels, and message parsing
 ├── examples/                    # Runnable usage examples for common API workflows
-└── tests/                       # Integration tests for end-to-end API behavior
+└── tests/                       # Integration tests split by area (client, accounts, orders, ...)
 ```

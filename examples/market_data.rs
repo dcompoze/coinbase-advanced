@@ -3,9 +3,11 @@
 //! This example demonstrates how to fetch market data including
 //! products, prices, and order book data.
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use coinbase_advanced::{
     Credentials, RestClient,
-    models::{GetProductBookParams, ListProductsParams},
+    models::{GetCandlesParams, GetProductBookParams, Granularity, ListProductsParams},
 };
 
 #[tokio::main]
@@ -66,6 +68,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for ask in &book.asks {
         println!("  ${} - {} BTC", ask.price, ask.size);
     }
+    println!();
+
+    // Get hourly candles for the last 2 days.
+    // The range is 48 candles, so a single request is enough.
+    println!("=== BTC-USD Hourly Candles (last 3) ===");
+    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+    let params = GetCandlesParams::new(
+        "BTC-USD",
+        (now - 2 * 86400).to_string(),
+        now.to_string(),
+        Granularity::OneHour,
+    );
+    let candles = client.products().get_candles(params).await?;
+    for candle in candles.iter().take(3) {
+        println!(
+            "start={} open={} high={} low={} close={}",
+            candle.start, candle.open, candle.high, candle.low, candle.close
+        );
+    }
+    println!();
+
+    // For ranges longer than 350 candles use get_candles_ext,
+    // which splits the range into windows automatically.
+    println!("=== BTC-USD Hourly Candles (30 days via get_candles_ext) ===");
+    let params = GetCandlesParams::new(
+        "BTC-USD",
+        (now - 30 * 86400).to_string(),
+        now.to_string(),
+        Granularity::OneHour,
+    );
+    let candles = client.products().get_candles_ext(params).await?;
+    println!("Fetched {} candles", candles.len());
 
     Ok(())
 }
