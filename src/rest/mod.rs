@@ -101,11 +101,8 @@ mod tests {
         );
         // Each full window holds exactly 350 candles.
         assert_eq!(20_940 / 60 + 1, 350);
-        // A range within the limit is a single window.
         assert_eq!(candle_windows(0, 600, 60), vec![(0, 600)]);
-        // A single timestamp holds one candle.
         assert_eq!(candle_windows(600, 600, 60), vec![(600, 600)]);
-        // An inverted range has no windows.
         assert!(candle_windows(601, 600, 60).is_empty());
     }
 }

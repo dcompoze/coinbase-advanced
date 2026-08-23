@@ -403,7 +403,6 @@ fn uuid_v4() -> String {
     )
 }
 
-// Add builder methods to RestClient.
 impl RestClient {
     /// Create a market order builder.
     ///

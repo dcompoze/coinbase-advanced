@@ -162,16 +162,13 @@ mod rate_limit {
     async fn test_rate_limiter() {
         let limiter = RateLimiter::new(TokenBucket::new(3.0, 10.0));
 
-        // Should have 3 tokens available
         let available = limiter.available().await;
         assert!((2.9..=3.0).contains(&available));
 
-        // Acquire 3 tokens
         assert!(limiter.try_acquire().await);
         assert!(limiter.try_acquire().await);
         assert!(limiter.try_acquire().await);
 
-        // 4th should fail
         assert!(!limiter.try_acquire().await);
     }
 

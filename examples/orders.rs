@@ -25,7 +25,6 @@ async fn main() -> coinbase_advanced::Result<()> {
 
     println!("Connected to Coinbase (sandbox mode)");
 
-    // List existing orders
     println!("\n--- Open Orders ---");
     let orders = client.orders().list_all(ListOrdersParams::new()).await?;
     if orders.is_empty() {
@@ -43,7 +42,6 @@ async fn main() -> coinbase_advanced::Result<()> {
         }
     }
 
-    // List recent fills
     println!("\n--- Recent Fills ---");
     let fills_response = client
         .orders()
@@ -82,7 +80,6 @@ async fn main() -> coinbase_advanced::Result<()> {
     }
     */
 
-    // Example: Market order builder
     println!("\n--- Order Builders Available ---");
     println!("client.market_order()     - Market IOC order");
     println!("client.limit_order_gtc()  - Limit Good-Til-Cancelled");

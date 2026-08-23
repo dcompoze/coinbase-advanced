@@ -66,18 +66,15 @@ pub mod rate_limit;
 pub mod rest;
 pub mod ws;
 
-// Re-export main types.
 pub use client::{RestClient, RestClientBuilder};
 pub use credentials::Credentials;
 pub use error::{Error, Result};
 
-// Re-export API types for convenience.
 pub use rest::{
     AccountsApi, ConvertApi, DataApi, FeesApi, FuturesApi, OrdersApi, PaymentMethodsApi,
     PerpetualsApi, PortfoliosApi, ProductsApi, PublicApi, ServerTime,
 };
 
-// Re-export constants for advanced usage.
 pub mod consts {
     pub use crate::constants::*;
 }

@@ -30,7 +30,6 @@ async fn test_get_account() {
 async fn test_list_all_accounts_follows_cursors() {
     let mock_server = MockServer::start().await;
 
-    // First page has a cursor to the second page.
     Mock::given(method("GET"))
         .and(path("/api/v3/brokerage/accounts"))
         .and(query_param("cursor", "page2"))

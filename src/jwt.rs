@@ -177,15 +177,12 @@ fn sign_jwt<H: Serialize, C: Serialize>(
 
 /// Sign data with ES256 using the provided PEM private key.
 fn sign_es256(data: &[u8], pem_key: &str) -> Result<Vec<u8>> {
-    // Parse PEM to get the DER-encoded key.
     let der = parse_ec_private_key_pem(pem_key)?;
 
-    // Create the key pair.
     let rng = SystemRandom::new();
     let key_pair = EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, &der, &rng)
         .map_err(|e| Error::jwt(format!("Failed to parse private key: {}", e)))?;
 
-    // Sign the data.
     let signature = key_pair
         .sign(&rng, data)
         .map_err(|_| Error::jwt("Failed to sign JWT"))?;
@@ -251,17 +248,14 @@ fn pem_body(pem: &str, start_marker: &str, end_marker: &str) -> Result<Vec<u8>> 
 fn parse_ec_private_key_pem(pem: &str) -> Result<Vec<u8>> {
     let pem = pem.trim();
 
-    // Handle both "EC PRIVATE KEY" (SEC1) and "PRIVATE KEY" (PKCS#8) formats.
     if pem.contains("BEGIN EC PRIVATE KEY") {
         let der = pem_body(
             pem,
             "-----BEGIN EC PRIVATE KEY-----",
             "-----END EC PRIVATE KEY-----",
         )?;
-        // Convert SEC1 to PKCS#8 format.
         convert_sec1_to_pkcs8(&der)
     } else if pem.contains("BEGIN PRIVATE KEY") {
-        // Already in PKCS#8 format.
         pem_body(
             pem,
             "-----BEGIN PRIVATE KEY-----",
@@ -289,27 +283,22 @@ fn parse_ec_private_key_pem(pem: &str) -> Result<Vec<u8>> {
 ///   privateKey      OCTET STRING (contains SEC1 ECPrivateKey)
 /// }
 fn convert_sec1_to_pkcs8(sec1_der: &[u8]) -> Result<Vec<u8>> {
-    // Construct the PKCS#8 structure.
     // The SEC1 key needs to be wrapped in an OCTET STRING.
     let mut octet_string = Vec::new();
     octet_string.push(0x04); // OCTET STRING tag
     push_der_length(&mut octet_string, sec1_der.len());
     octet_string.extend_from_slice(sec1_der);
 
-    // Build AlgorithmIdentifier.
     let alg_id: &[u8] = &[
         0x30, 0x13, // SEQUENCE
         0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, // OID ecPublicKey
         0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, // OID prime256v1
     ];
 
-    // Build version.
     let version: &[u8] = &[0x02, 0x01, 0x00]; // INTEGER 0
 
-    // Calculate total length.
     let content_len = version.len() + alg_id.len() + octet_string.len();
 
-    // Build final PKCS#8 structure.
     let mut pkcs8 = Vec::new();
     pkcs8.push(0x30); // SEQUENCE tag
     push_der_length(&mut pkcs8, content_len);
@@ -419,7 +408,6 @@ mod tests {
     fn test_base64_decode() {
         let decoded = base64_decode("aGVsbG8").unwrap();
         assert_eq!(decoded, b"hello");
-        // Trailing padding is accepted.
         assert_eq!(base64_decode("aGVsbG8=").unwrap(), b"hello");
     }
 
@@ -427,7 +415,6 @@ mod tests {
     fn test_base64_decode_rejects_invalid_input() {
         // A length of 4n + 1 is never valid base64.
         assert!(base64_decode("aGVsb").is_err());
-        // Invalid characters are rejected in every position.
         assert!(base64_decode("aGV$bG8").is_err());
         assert!(base64_decode("aGVsbG$").is_err());
         // Interior padding is rejected.

@@ -7,7 +7,7 @@ A Rust async client library for the [Coinbase Advanced Trade API](https://docs.c
 - JWT authentication with ECDSA (ES256) and Ed25519 (EdDSA) keys
 - Optional client-side rate limiting and retries with exponential backoff
 - Automatic cursor pagination helpers (`list_all`)
-- Async/await with Tokio/Reqwest
+- Async/await with Tokio and Reqwest
 
 ## Library
 
@@ -172,17 +172,6 @@ cargo run --example debug_products # Products endpoint with debug logging
 cargo run --example ws             # Public WebSocket ticker stream
 cargo run --example ws_user        # Authenticated user channel with auto-reconnect
 ```
-
-## Testing
-
-```sh
-cargo test
-```
-
-Unit tests live next to the code in `src/`.
-Integration tests in `tests/` are split by area and run against local mock
-servers (wiremock for REST, a local WebSocket server for streaming), so no
-credentials or network access are needed.
 
 ## Project structure
 

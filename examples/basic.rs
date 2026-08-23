@@ -11,23 +11,18 @@ use coinbase_advanced::{Credentials, RestClient};
 
 #[tokio::main]
 async fn main() -> coinbase_advanced::Result<()> {
-    // Initialize tracing for debug output
     tracing_subscriber::fmt::init();
 
-    // Load credentials from environment
     let credentials = Credentials::from_env()?;
     println!("Loaded credentials for: {}", credentials.api_key());
 
-    // Build the client
     let client = RestClient::builder().credentials(credentials).build()?;
 
-    // Get server time (public endpoint)
     println!("\n--- Server Time ---");
     let time = client.public().get_time().await?;
     println!("ISO: {}", time.iso);
     println!("Epoch: {} seconds", time.epoch_seconds);
 
-    // List accounts
     println!("\n--- Accounts ---");
     let accounts = client.accounts().list_all().await?;
     for account in accounts.iter().take(5) {
@@ -44,7 +39,6 @@ async fn main() -> coinbase_advanced::Result<()> {
         println!("... and {} more accounts", accounts.len() - 5);
     }
 
-    // Get products
     println!("\n--- Products (first 5) ---");
     let response = client.products().list_all().await?;
     for product in response.products.iter().take(5) {
@@ -55,7 +49,6 @@ async fn main() -> coinbase_advanced::Result<()> {
     }
     println!("Total products: {}", response.products.len());
 
-    // Get a specific product
     println!("\n--- BTC-USD Details ---");
     let btc = client.products().get("BTC-USD").await?;
     println!("Product: {} / {}", btc.base_name, btc.quote_name);
@@ -63,7 +56,6 @@ async fn main() -> coinbase_advanced::Result<()> {
     println!("24h Volume: {}", btc.volume_24h);
     println!("24h Change: {}%", btc.price_percentage_change_24h);
 
-    // Get best bid/ask
     println!("\n--- Best Bid/Ask ---");
     let params = GetBestBidAskParams::new().product_ids(&["BTC-USD", "ETH-USD"]);
     let bid_ask = client.products().get_best_bid_ask(params).await?;
@@ -76,7 +68,6 @@ async fn main() -> coinbase_advanced::Result<()> {
         );
     }
 
-    // Get fee tier
     println!("\n--- Fee Tier ---");
     let fees = client.fees().get_transaction_summary().await?;
     println!("Pricing tier: {}", fees.fee_tier.pricing_tier);

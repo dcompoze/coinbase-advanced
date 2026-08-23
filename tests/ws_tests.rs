@@ -60,7 +60,6 @@ async fn test_subscribe_and_receive() {
     let server = tokio::spawn(async move {
         let mut ws = accept_ws(&listener).await;
 
-        // Expect a subscribe message, then send one heartbeat.
         let subscribe = ws.next().await.unwrap().unwrap();
         let subscribe: serde_json::Value =
             serde_json::from_str(subscribe.to_text().unwrap()).unwrap();
@@ -124,7 +123,6 @@ async fn test_auto_reconnect_resubscribes() {
     let mut stream = client.connect().await.unwrap();
     client.subscribe(&[Channel::Heartbeats]).await.unwrap();
 
-    // First message from the first connection.
     let first = stream.next().await.unwrap().unwrap();
     assert_eq!(first.sequence_num, 1);
 
@@ -161,7 +159,6 @@ async fn test_sequence_gap_detection() {
     let mut stream = client.connect().await.unwrap();
     client.subscribe(&[Channel::Heartbeats]).await.unwrap();
 
-    // Sequence 1 is delivered normally.
     let first = stream.next().await.unwrap().unwrap();
     assert_eq!(first.sequence_num, 1);
 

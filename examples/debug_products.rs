@@ -13,7 +13,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let credentials = Credentials::from_env()?;
     let client = RestClient::builder().credentials(credentials).build()?;
 
-    // Try the authenticated products endpoint
     println!("Trying authenticated products endpoint...");
     match client
         .products()
@@ -28,7 +27,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Try a specific product
     println!("\nTrying to get BTC-USD...");
     match client.products().get("BTC-USD").await {
         Ok(product) => {

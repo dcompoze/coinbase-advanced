@@ -45,7 +45,6 @@ impl Credentials {
         let api_key = api_key.into();
         let private_key = private_key.into();
 
-        // Basic validation.
         if api_key.is_empty() {
             return Err(Error::config("API key cannot be empty"));
         }

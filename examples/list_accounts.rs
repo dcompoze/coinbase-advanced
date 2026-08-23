@@ -11,24 +11,19 @@ use coinbase_advanced::{Credentials, RestClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing for debug output
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    // Load environment variables from .env file
     dotenv::dotenv().ok();
 
-    // Create credentials from environment
     let credentials = Credentials::from_env()?;
     println!("Loaded credentials for: {}", credentials.api_key());
 
-    // Build the client
     let client = RestClient::builder().credentials(credentials).build()?;
 
     println!("Fetching accounts...\n");
 
-    // List all accounts
     let accounts = client.accounts().list_all().await?;
 
     println!("Found {} accounts:", accounts.len());

@@ -533,7 +533,6 @@ mod tests {
         let msg: Message = serde_json::from_str(data).unwrap();
         assert!(matches!(msg.events, Events::Ticker(_)));
 
-        // Missing envelope fields get defaults.
         let data = r#"{"channel":"heartbeats"}"#;
         let msg: Message = serde_json::from_str(data).unwrap();
         assert_eq!(msg.sequence_num, 0);
@@ -567,7 +566,6 @@ mod tests {
 
     #[test]
     fn test_level2_side_deserialize() {
-        // Test normal cases
         assert_eq!(
             serde_json::from_str::<Level2Side>(r#""bid""#).unwrap(),
             Level2Side::Bid
@@ -576,7 +574,6 @@ mod tests {
             serde_json::from_str::<Level2Side>(r#""ask""#).unwrap(),
             Level2Side::Ask
         );
-        // Test "offer" alias
         assert_eq!(
             serde_json::from_str::<Level2Side>(r#""offer""#).unwrap(),
             Level2Side::Ask

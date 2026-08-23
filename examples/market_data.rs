@@ -18,11 +18,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     dotenv::dotenv().ok();
 
-    // Create authenticated client
     let credentials = Credentials::from_env()?;
     let client = RestClient::builder().credentials(credentials).build()?;
 
-    // Get server time (public endpoint)
     println!("=== Server Time ===");
     let time = client.public().get_time().await?;
     println!("Server time: {}", time.iso);
@@ -43,7 +41,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     println!();
 
-    // Get BTC-USD details (authenticated)
     println!("=== BTC-USD Details ===");
     let btc = client.products().get("BTC-USD").await?;
     println!("Product: {}", btc.product_id);
@@ -53,7 +50,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Min Order Size: {} BTC", btc.base_min_size);
     println!();
 
-    // Get order book (using public API)
     println!("=== BTC-USD Order Book (Top 5) ===");
     let book = client
         .public()

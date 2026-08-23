@@ -544,7 +544,6 @@ impl RestClient {
             tracing::trace!(remaining, "API rate limit remaining");
         }
 
-        // Check for rate limiting.
         // Only the seconds form of `retry-after` is parsed,
         // an HTTP date value yields `None`.
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
@@ -560,9 +559,7 @@ impl RestClient {
 
         let body = response.text().await.map_err(Error::Http)?;
 
-        // Check for error status codes.
         if !status.is_success() {
-            // Try to parse error message from response.
             let message = serde_json::from_str::<serde_json::Value>(&body)
                 .ok()
                 .and_then(|v| {
@@ -577,7 +574,6 @@ impl RestClient {
             return Err(Error::api(status.as_u16(), message, Some(body)));
         }
 
-        // Parse successful response.
         // Some endpoints return an empty body on success,
         // treat it as JSON null so `()` and `Value` targets parse.
         let json = if body.trim().is_empty() {

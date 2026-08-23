@@ -313,12 +313,10 @@ mod tests {
     fn test_token_bucket_consume() {
         let mut bucket = TokenBucket::new(5.0, 1.0);
 
-        // Should be able to consume 5 tokens
         for _ in 0..5 {
             assert!(bucket.try_consume());
         }
 
-        // 6th token should fail
         assert!(!bucket.try_consume());
     }
 
@@ -369,11 +367,9 @@ mod tests {
     async fn test_rate_limiter_acquire() {
         let limiter = RateLimiter::new(TokenBucket::new(2.0, 10.0));
 
-        // Should be able to acquire 2 tokens
         assert!(limiter.try_acquire().await);
         assert!(limiter.try_acquire().await);
 
-        // Third should fail immediately
         assert!(!limiter.try_acquire().await);
     }
 }

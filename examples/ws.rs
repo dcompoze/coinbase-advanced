@@ -16,11 +16,9 @@ async fn main() -> coinbase_advanced::Result<()> {
     // Build a WebSocket client (no auth needed for public channels)
     let client = WebSocketClient::builder().auto_reconnect(true).build()?;
 
-    // Connect to WebSocket
     let mut stream = client.connect().await?;
     println!("Connected!");
 
-    // Subscribe to ticker updates for BTC-USD and ETH-USD
     println!("Subscribing to ticker updates...");
     client
         .subscribe(&[
@@ -32,7 +30,6 @@ async fn main() -> coinbase_advanced::Result<()> {
         .await?;
     println!("Subscribed!");
 
-    // Process messages (limit to 20 for demo)
     println!("\nReceiving messages (press Ctrl+C to stop)...\n");
 
     let mut count = 0;
@@ -62,7 +59,6 @@ async fn main() -> coinbase_advanced::Result<()> {
                 }
                 count += 1;
 
-                // Stop after 20 messages for demo
                 if count >= 20 {
                     println!("\nReceived 20 messages, stopping...");
                     break;

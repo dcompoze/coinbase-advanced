@@ -211,7 +211,6 @@ impl ClientInner {
             Error::websocket(format!("Failed to connect to public WebSocket: {}", e))
         })?;
 
-        // If we have credentials, also connect to the user endpoint.
         let user_socket = if self.credentials.is_some() {
             let (user_socket, _) = connect_async(self.user_url()).await.map_err(|e| {
                 Error::websocket(format!("Failed to connect to user WebSocket: {}", e))
@@ -240,7 +239,6 @@ impl ClientInner {
     async fn subscribe_one(&self, channel: &Channel) -> Result<()> {
         let endpoint = channel.endpoint_type();
 
-        // Check if we can subscribe to this channel.
         if channel.requires_auth() && self.credentials.is_none() {
             return Err(Error::websocket(format!(
                 "Channel {:?} requires authentication",
@@ -251,7 +249,6 @@ impl ClientInner {
         let msg = self.build_subscription_message(channel, "subscribe")?;
         self.send_message(endpoint, msg).await?;
 
-        // Track subscription.
         self.subscriptions.lock().await.add(channel);
 
         Ok(())
@@ -263,7 +260,6 @@ impl ClientInner {
         let msg = self.build_subscription_message(channel, "unsubscribe")?;
         self.send_message(endpoint, msg).await?;
 
-        // Update subscription tracking.
         self.subscriptions.lock().await.remove(channel);
 
         Ok(())
@@ -367,7 +363,6 @@ impl ClientInner {
 
     /// Resubscribe to all previously subscribed channels.
     async fn resubscribe(&self) -> Result<()> {
-        // Collect channels to resubscribe to.
         let channels_to_resubscribe: Vec<Channel> = {
             let subs = self.subscriptions.lock().await;
             subs.public
@@ -720,11 +715,8 @@ mod tests {
 
         assert!(check_sequence(true, &mut last, &msg(0)).is_none());
         assert!(check_sequence(true, &mut last, &msg(1)).is_none());
-        // Gap: 2 is skipped.
         assert!(check_sequence(true, &mut last, &msg(3)).is_some());
-        // Counter resyncs after a gap.
         assert!(check_sequence(true, &mut last, &msg(4)).is_none());
-        // Disabled validation never reports.
         let mut last = Some(0);
         assert!(check_sequence(false, &mut last, &msg(9)).is_none());
     }

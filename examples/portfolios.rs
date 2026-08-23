@@ -16,7 +16,6 @@ async fn main() -> coinbase_advanced::Result<()> {
         .credentials(Credentials::from_env()?)
         .build()?;
 
-    // List portfolios
     println!("--- Portfolios ---");
     let portfolios = client.portfolios().list().await?;
     for portfolio in &portfolios {
@@ -29,7 +28,6 @@ async fn main() -> coinbase_advanced::Result<()> {
         );
     }
 
-    // Get the breakdown of the first portfolio
     if let Some(portfolio) = portfolios.first() {
         println!("\n--- Breakdown of {} ---", portfolio.name);
         let breakdown = client.portfolios().get_breakdown(&portfolio.uuid).await?;

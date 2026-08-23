@@ -70,7 +70,6 @@ async fn test_authenticated_request_sends_bearer_token() {
 async fn test_public_request_sends_no_auth_header() {
     let mock_server = MockServer::start().await;
 
-    // The public time endpoint must not carry an Authorization header.
     Mock::given(method("GET"))
         .and(path("/api/v3/brokerage/time"))
         .and(|request: &wiremock::Request| !request.headers.contains_key("authorization"))

@@ -11,7 +11,6 @@ AwEHoUQDQgAEat2hFxJwUbhH4oZp9z5rj7J6nU7FYt6pfE6Ei3gvMWAZIqJ8TdME
 S5IRIotaS4KLpQhofOyNZ7i7rcCAipIZrw==
 -----END EC PRIVATE KEY-----";
 
-/// Build an authenticated client pointed at a mock server.
 pub fn mock_client(uri: &str) -> RestClient {
     RestClient::builder()
         .credentials(Credentials::new("test-key", TEST_EC_KEY).unwrap())
@@ -20,7 +19,6 @@ pub fn mock_client(uri: &str) -> RestClient {
         .unwrap()
 }
 
-/// A valid account response body.
 pub fn account_json(uuid: &str) -> serde_json::Value {
     serde_json::json!({
         "uuid": uuid,
@@ -39,7 +37,6 @@ pub fn account_json(uuid: &str) -> serde_json::Value {
     })
 }
 
-/// A valid order response body.
 pub fn order_json(order_id: &str) -> serde_json::Value {
     serde_json::json!({
         "order_id": order_id,
@@ -50,7 +47,6 @@ pub fn order_json(order_id: &str) -> serde_json::Value {
     })
 }
 
-/// A valid fill response body.
 pub fn fill_json(entry_id: &str) -> serde_json::Value {
     serde_json::json!({
         "entry_id": entry_id,
@@ -65,7 +61,6 @@ pub fn fill_json(entry_id: &str) -> serde_json::Value {
     })
 }
 
-/// A valid candle response body for the given start time.
 pub fn candle_json(start: u64) -> serde_json::Value {
     serde_json::json!({
         "start": start.to_string(),
