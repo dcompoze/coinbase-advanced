@@ -126,14 +126,14 @@ impl RestClientBuilder {
         let mut client_builder = reqwest_middleware::ClientBuilder::new(reqwest_client)
             .with(TracingMiddleware::default());
 
-        if let Some(ref config) = self.retry_config
-            && config.enabled
-            && config.max_retries > 0
-        {
-            let policy = ExponentialBackoff::builder()
-                .retry_bounds(config.initial_backoff, config.max_backoff)
-                .build_with_max_retries(config.max_retries);
-            client_builder = client_builder.with(RetryTransientMiddleware::new_with_policy(policy));
+        if let Some(ref config) = self.retry_config {
+            if config.enabled && config.max_retries > 0 {
+                let policy = ExponentialBackoff::builder()
+                    .retry_bounds(config.initial_backoff, config.max_backoff)
+                    .build_with_max_retries(config.max_retries);
+                client_builder =
+                    client_builder.with(RetryTransientMiddleware::new_with_policy(policy));
+            }
         }
 
         let (private_limiter, public_limiter) = if self.rate_limiting {
