@@ -96,26 +96,6 @@ async fn main() -> coinbase_advanced::Result<()> {
 }
 ```
 
-### TLS backends
-
-HTTPS and WebSocket TLS use Rustls with native root certificates by default:
-
-```toml
-[dependencies]
-coinbase-advanced = "2.0.2"
-```
-
-To use the platform native TLS implementation for both clients, disable the default features and
-enable `native-tls`:
-
-```toml
-[dependencies]
-coinbase-advanced = { version = "2.0.2", default-features = false, features = ["native-tls"] }
-```
-
-Builds with `default-features = false` and no TLS feature cannot connect to Coinbase HTTPS or
-`wss://` endpoints. Enable one TLS backend when using Coinbase production or sandbox endpoints.
-
 Configuration:
 
 ```rust
@@ -139,9 +119,19 @@ let client = WebSocketClient::builder()
     .build()?;
 ```
 
-Note: On 2026-09-09 Coinbase moves international derivatives (INTX) to a
-Deribit-powered gateway with a JSON-RPC API. The `/intx` endpoints in this
-library follow the current Advanced Trade REST API.
+## TLS backends
+
+HTTPS and WebSocket TLS use Rustls with native root certificates by default.
+
+To use the platform native TLS implementation for both clients, disable the default features and
+enable `native-tls`:
+
+```toml
+[dependencies]
+coinbase-advanced = { version = "*", default-features = false, features = ["native-tls"] }
+```
+
+Enable the TLS backend when using Coinbase production or sandbox endpoints.
 
 ## API coverage
 
