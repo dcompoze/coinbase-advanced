@@ -14,20 +14,31 @@ jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - ""
+          - "--no-default-features --features native-tls"
+          - "--all-features"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check --all-features
+      - run: cargo check ${{ matrix.features }}
 
   test:
     name: Test
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - ""
+          - "--no-default-features --features native-tls"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --all-features
+      - run: cargo test ${{ matrix.features }}
 
   fmt:
     name: Rustfmt
